@@ -1,12 +1,12 @@
 
-| Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |
-| --- | --- | --- |
+| Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |    Network Options | ![alt text][POE++] | ![alt text][VLAN] |
+| --- | --- | --- | --- | --- | --- |
 
 | Radios supported | ![alt text][IC-905] | ![alt text][IC-705] | ![alt text][IC-9700] |
 | --- | --- | --- | --- |
 
-| Python versions tested | ![alt text][Python311] | ![alt text][Python312] | ![alt text][POE++] | ![alt text][VLAN] | 
-| --- | --- | --- | --- | --- |
+| Python versions tested | ![alt text][Python311] | ![alt text][Python312] | 
+| --- | --- | --- |
 
 [Pi5B]: https://img.shields.io/badge/-Pi%205B-purple "Pi 5B"
 [Pi4B]: https://img.shields.io/badge/-Pi%204B-green "Pi 4B"
