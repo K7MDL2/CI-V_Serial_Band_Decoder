@@ -1,0 +1,1 @@
+tail -f -n0 /home/$USER/Decoder.log
