@@ -1,10 +1,19 @@
-| Uses | ![alt text][Pi5B] | ![alt text][Pi4B] | ![alt text][Pi3B] | ![alt text][IC-905] | ![alt text][Python311] | ![alt text][Python312] | ![alt text][POE++] | ![alt text][VLAN] | 
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+| Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |
+| --- | --- | --- |
+
+| Radios supported | ![alt text][IC-905] | ![alt text][IC-705] | ![alt text][IC-9700] |
+| --- | --- | --- | --- |
+
+| Python versions tested | ![alt text][Python311] | ![alt text][Python312] | ![alt text][POE++] | ![alt text][VLAN] | 
+| --- | --- | --- | --- | --- |
 
 [Pi5B]: https://img.shields.io/badge/-Pi%205B-purple "Pi 5B"
 [Pi4B]: https://img.shields.io/badge/-Pi%204B-green "Pi 4B"
 [Pi3B]: https://img.shields.io/badge/-Pi%203B-orange "Pi 3B"
 [IC-905]: https://img.shields.io/badge/-IC--905-cyan "IC-905"
+[IC-705]: https://img.shields.io/badge/-IC--705-cyan "IC-705"
+[IC-9700]: https://img.shields.io/badge/-IC--9700-cyan "IC-9700"
 [Python311]: https://img.shields.io/badge/-Python%203.11-red "Python311"
 [Python312]: https://img.shields.io/badge/-Python%203.12-red "Python312"
 [POE++]: https://img.shields.io/badge/-POE++-yellow "POE++"
