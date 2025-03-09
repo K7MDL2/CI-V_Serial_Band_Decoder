@@ -42,7 +42,7 @@ https://github.com/K7MDL2/IC905_Ethernet_Decoder
 The main app name here is CI-V_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
  This permits parallel operation with the TCP905 version which is how things are in my dev environment.  The 'view_log' tool is now 'view_decoder_log'.
 
-One significant change in this version is multiple radio support.  While I auto-detect the CI-V address, I curently have no working means to dynamically change the frequency table and reload the necessary variable to switch between the 905 (and 9700 which is the same) and the 705 and later other radios.  for now I have a new config file entry inside the file ~/Decoder.config
+One significant change in this version is multiple radio support.  While I auto-detect the CI-V address, I currently have no working means to dynamically change the frequency table and reload the necessary variables to switch between the 905 (and 9700 which is the same) and the 705 and later other radios.  For now I have a new config file entry inside the file ~/Decoder.config
 
     # --------------------------------
     # 
