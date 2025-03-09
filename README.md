@@ -47,4 +47,4 @@ This is inside the file ~/Decoder.config
     #RADIO_MODEL=IC905
     RADIO_MODEL=IC705
 
-Not setting the right model results in the wrong band frequency limits and band labels applied and GPIO won't be correct.
+Not setting the right model results in the wrong band frequency limits and band labels applied and GPIO won't be correct.   If you change this you must restart the program.  If it is running as a systemd service then use the stop/start utilities.
