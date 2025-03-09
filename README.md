@@ -11,8 +11,6 @@
 [VLAN]: https://img.shields.io/badge/-VLAN-blue "VLAN"
 
 
-
-
 This is a Python serial port based CI- V band decoder targeting the IC-705, IC-905, and IC-9700 for now.  The use scnario is nearly identical to the TCP sniffer version, but does not require tapping into the RF Unit comms.
 
 In this case I am using ethernet to reach a remote located Pi CPU, same as the ethernet sniffer version, but I am running wfView remote control program on the Pi which can share the radio CI-V comms over a virtual serial port. From the outside it should, when completed, look and act the same as the ethernet sniffer unit but use standard CI-V protocol.
@@ -26,3 +24,27 @@ The initial upload to this repo has working frequency and band from serial CI-V 
 
 I initially looked at adding GPIO code to wfView and spotted a few places in that code to make such additions.  Then I thought I could simply run a standalone program using the virtual serial ports and not touch the wfView code so I cranked up the keyboard and produced this.   There is likely already a similar Linux and/or Windows CI-V decoder but I wanted to do my own in Python for the reasons above.   My Desktop Band Decoder app is in Python but is my own comm protocol and is USB and ethernet based, targeting a Teensy custom PCB I designed.
 
+
+### Setup and usage
+
+Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
+https://github.com/K7MDL2/IC905_Ethernet_Decoder
+
+The main app name is CI-V_Serial.py and has all teh same install script, logs, config, and service files with changed names from Decoder905 to Decoder.  This permits parallel operation with the TCP905 version.   The view_log is now view_decoder_log.
+
+One significant change in this version is multiple radio support.  While I autodetect the CI-V address, I have no working means to dynamically change the frequency table to switch between the 905 (and 9700 which is the same) and the 705 and later other radios.  I have a new config file entry 
+
+This is inside the file ~/Decoder.config
+
+    # --------------------------------
+    # 
+    # Enter the model radio to get the right band assignments
+    # Choices are IC705, IC905
+    # For the IC-9700 choose IC905
+    #
+    # --------------------------------
+
+    #RADIO_MODEL=IC905
+    RADIO_MODEL=IC705
+
+Not setting the right model results in the wrong band frequency limits and band labels applied and GPIO won't be correct.

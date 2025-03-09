@@ -63,8 +63,8 @@ echo "Copying files and configuring the new systemd service ..."
 sudo cp $PWD/CI-V_Serial.py /usr/local/bin
 sudo chmod +x /usr/local/bin/CI-V_Serial.py
 
-sudo cp $PWD/view_log /usr/local/bin
-sudo chmod +x /usr/local/bin/view_log
+sudo cp $PWD/view_Decoder_log /usr/local/bin
+sudo chmod +x /usr/local/bin/view_Decoder_log
 
 sudo cp $PWD/chk_dht11 /usr/local/bin
 sudo chmod +x /usr/local/bin/chk_dht11
