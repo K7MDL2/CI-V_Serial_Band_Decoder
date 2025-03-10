@@ -29,10 +29,20 @@ The code is a mashup of my USB CI-V Band Decoder C ported to Python, and the eth
 2. Run the same hardware in either scenario (ethernet or serial) 
 3. Leverage most of the same operations, scripts, config files, logging, output formatting, and Wiki page instructions from the ethernet version
 
-The initial upload to this repo has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is being ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  I am porting over selected CI-V library functions and can now poll the radio.
-
 I initially looked at adding GPIO code to wfView and spotted a few places in that code to make such additions.  Then I thought I could simply run a standalone program using the virtual serial ports and not touch the wfView code so I cranked up the keyboard and produced this.  There is likely already a similar Linux and/or Windows CI-V decoder somewhere including commercial units but I wanted to do my own in Python for the reasons above.   My Desktop Band Decoder app is in Python but is my own comm protocol and is USB and ethernet based, targeting a Teensy custom PCB I designed.
 
+This now has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is being ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  
+
+I am porting over selected CI-V library functions and poll the radio at startup.  They include polled PTT, date, time, UTC offset, location, preamp, attenuator, frequency, and split.  I calculate grid square to 8 places.  GPIO for relays is working.
+
+### ToDo
+
+To be added: 
+1. Timer thread to periodically poll the radio for split, TX, mode, filter, datamode, time, preamp, atten.  
+2. I also have to add GPIO input monitoring for wired PTT and hook it and the polled PTT into the existing PTT function.
+3. I have a 7" HDMI touchscreen I may add some graphics UI for.
+4. Get dynamic radio config switching working.
+   
 
 ### Setup and usage
 
