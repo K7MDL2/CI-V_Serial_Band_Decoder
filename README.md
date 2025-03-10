@@ -22,7 +22,7 @@
 
 This is a Python serial port based CI- V band decoder targeting the IC-705, IC-905, and IC-9700 for now.  The use scenario is nearly identical to the TCP sniffer version at https://github.com/K7MDL2/IC905_Ethernet_Decoder, but does not require tapping into the RF Unit comms.  If you use this with a IC-905 and you are not trying to use a single ethernet cable to reach the remote RF Unit, then there is no need for a POE Inserter or any remote switches and VLANs if there is only the Pi at the end of the cable.
 
-In this case I am using ethernet to reach a remote located cabinet with a Pi CPU inside along with other ethernet gear, same as the ethernet TCP sniffer version, but tp get the CI-V data remotely, I am running 'wfView' remote control program on the Pi which can share the radio CI-V comms over a virtual serial port. From the outside it should, when completed, look and act the same as the ethernet sniffer unit but use standard CI-V protocol.
+In this case I am using ethernet to reach a remote located cabinet with a Pi CPU inside along with other ethernet gear, same as the ethernet TCP sniffer version, but tp get the CI-V data remotely, I am running 'wfView' remote control program (https://wfview.org/) on the Pi which can share the radio CI-V comms over a virtual serial port. From the outside it should, when completed, look and act the same as the ethernet sniffer unit but use standard CI-V protocol.
 
 The code is a mashup of my USB CI-V Band Decoder C ported to Python, and the ethernet IC-905 Band Decoder which is in Python.  I could have converted the USB project from USB serial to plain serial fairly quickly but I wanted to do it in Python:
 1. For the fun of it as this is only my 3rd or 4th significant Python project
