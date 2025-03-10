@@ -334,4 +334,59 @@ cmd_List = [
     [cmds.CIV_C_SCOPE_ALL,       1,0x27],                    # send/read Scope catch all to avoid no match found error outputs
     [cmds.CIV_R_NO_GOOD,         1,0xFA],                    # Message received from radio was no good
     [cmds.CIV_R_GOOD,            1,0xFB]                     # Message received from radio was good
-]                        
+]
+
+# For CIV commands
+
+#define MODES_NUM   16
+#define CW          3
+#define CW_R        7
+#define USB         1
+#define LSB         0     
+#define RTTY        4     
+#define RTTY_R      8     
+#define AM          2
+#define FM          5
+#define DV          23
+#define DD          34
+#define ATV         35
+
+#define AGC_SET_NUM 4
+#define AGC_OFF     0       // Index to AGC Settings table
+#define AGC_SLOW    3
+#define AGC_MID     2
+#define AGC_FAST    1
+
+#define FILTER      4
+#define FILT1       1
+#define FILT2       2
+#define FILT3       3
+#define VFO_A       1
+#define VFO_B       0
+
+#define ATTN_OFF   0       // Bypass
+#define ATTN_ON    1       // Turn relay on
+#define PREAMP_OFF  0       // Bypass
+#define PREAMP_ON   1       // Switch relay on
+
+# clear text translation of the Filter setting
+FilStr = [
+  "NDEF",
+  "FIL1",   # 1 (1 .. 3 is according to ICOM's documentation)
+  "FIL2",
+  "FIL3"
+  ]                
+
+#Modes_List = [
+#    uint8_t     mode_num;
+#    char        mode_label[8];
+#    uint8_t     filtx;             // bandwidth in HZ - look up matching width in Filter table when changing modes
+#    uint8_t     data;
+
+
+# translation of the radio's general mode
+ModeStr = [
+  "MODE_VOICE",
+  "MODE_DATA",
+  "MODE_NDEF"
+  ]

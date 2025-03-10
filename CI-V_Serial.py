@@ -51,6 +51,8 @@ hr_off = None
 min_off = None
 shift_dir = None
 UTC = 0  # 0 = local, 1 = UTC time format
+MODES_NUM = 16
+
 
 class OutputHandler:
 
@@ -146,13 +148,13 @@ class OutputHandler:
 #-----------------------------------------------------------------------------
 
 class RepeatedTimer(object):
-    def __init__(self, interval: int, function: Callable, args=None, kwargs=None):
-        super(RepeatedTimer, self).__init__()
+    def __init__(self, interval, function, *args, **kwargs):
+        #super(RepeatedTimer, self).__init__()
         self._timer = None
         self.interval = interval
         self.function = function
-        self.args = [] if args is None else args
-        self.kwargs = {} if kwargs is None else kwargs
+        self.args = args
+        self.kwargs = kwargs
         self.is_running = False
         self.start()
 
@@ -168,8 +170,9 @@ class RepeatedTimer(object):
             self.is_running = True
 
     def stop(self):
-        self._timer.cancel()
-        self.is_running = False
+        if self._timer:
+            self._timer.cancel()
+            self.is_running = False
 
 #  __________________________________________________________________
 #
@@ -233,7 +236,8 @@ class BandDecoder(): #OutputHandler):
 
     def __init__(self):
         self.__offset = 0
-        self.__freq_last = 0
+        self.__freq_lastA = 0
+        self.__freq_lastB = 0
         self.__vfoa_band_last = 255
         self.__ptt_state_last = 255
         self.PTT_hang_time = 0.3
@@ -367,8 +371,8 @@ class BandDecoder(): #OutputHandler):
         self.read_band_pins(key_value_pairs)
         self.read_ptt_pins(key_value_pairs)
         io.gpio_config()
-        self.vfoa_band = self.frequency(self.selected_vfo)
-        self.ptt()
+        self.vfoa_band = self.frequency(self.selected_vfo, self.unselected_vfo)  # 0 is vfoa
+        self.ptt(PTT)
 
     def write_split(self, split):
         file_path = os.path.expanduser('~/.Decoder.split')
@@ -490,28 +494,26 @@ class BandDecoder(): #OutputHandler):
         self.write_temps(temp_str+"\n")
 
 
-    def check_msg_valid(self):
-        if (self.payload_ID != 0xa803 and self.payload_ID != 0x0000):
-            if (self.payload_copy[0x000a] != 0x44 and self.payload_copy[0x000b] != 0x00):
-                #print("Rejected message from ID", format(self.payload_ID, "04x"))
-                return  1 # get avoid garbage versions
-            else:
-                #print("Accepted message from ID", format(self.payload_ID, "04x"))
-                return 0   # return 1 for bad, 0 for good
-
-
     def p_status(self, TAG):
         global TempC
         global TempF
         global Humidity
         cpu = self.get_cpu_temp()
         #tim = dtime.now()
+        
+        if self.split_status == 17:
+            splits = 'D'  # duplex
+        elif self.split_status == 1:
+            splits = '1'  # split on
+        else: 
+            splits = '0'   # split off
+            
         print(self.colored(175,210,240,"("+TAG+")"),
             #tim.strftime("%m/%d/%y %H:%M:%S%Z"),
             " VFOA Band:"+self.colored(255,225,165,format(self.bandname,"4")),
             " A:"+self.colored(255,255,255,format(self.selected_vfo, "11")),
             " B:"+self.colored(215,215,215,format(self.unselected_vfo, "11")),
-            " Split:"+self.colored(225,255,90,format(self.split_status, "1")),
+            " Split:"+self.colored(225,255,90,splits),
             " M:"+format(self.modeA, "1"),
             " F:"+format(self.filter, "1"),
             " D:"+format(self.datamode, "1"),
@@ -548,18 +550,18 @@ class BandDecoder(): #OutputHandler):
         return freq
 
 
-    def frequency(self, freq):  # 0xd8 0x00 is normal tuning update, 0x18 on band changes
+    def frequency(self, freqA, freqB):  # 0xd8 0x00 is normal tuning update, 0x18 on band changes
         # Duplex used split status byte for VFO swap, just has vfoB set different with offset
         # split is updated in message ID 0xD4.  Here we can also pick it up and not wait for 
         # someone to press the split button to generate the d4 event.
         # Returns the payload hex converted to int.
         # This need to have the band offset applied next
-        __vfoa = freq
+        __vfoa = freqA
         #print("(Freq) VFO A = ", __vfoa)
-        __vfob = freq
-        #print("(Freq) VFO B = ", __vfob)
+        __vfob = freqB
+         #print("(Freq) VFO B = ", __vfob)
 
-        if (self.vfoa_band == "13cm" or self.vfoa_band == "6cm"):
+        if (radio_address == IC905 and (self.vfoa_band == 3 or self.vfoa_band == 4 or self.vfoa_band == 5)):
             self.atten_status = 0
             self.preamp_status = 0
 
@@ -568,7 +570,7 @@ class BandDecoder(): #OutputHandler):
             self.__split_status_last = self.split_status
 
         # Look for band changes
-        if (__vfoa != self.__freq_last):
+        if (__vfoa != self.__freq_lastA or __vfob != self.__freq_lastB):
             # Search the Freq_table to see what band these values lie in
             for __band_num in Freq_table:
                 if (__vfoa >= Freq_table[__band_num]['lower_edge'] and
@@ -598,9 +600,11 @@ class BandDecoder(): #OutputHandler):
                 self.write_band(self.vfoa_band)  # update the status file on change
                 self.bandname = Freq_table[__band_num]['bandname']
 
-            self.__freq_last = __vfoa
+            self.__freq_lastA = __vfoa
+            self.__freq_lastB = __vfob
         else:
-            self.p_status("FREQ ") # print out our state
+            #self.p_status("FREQ ") # print out our state
+            pass
 
         return self.vfoa_band
 
@@ -611,7 +615,7 @@ class BandDecoder(): #OutputHandler):
     def spectrum(self):
         #hexdump(s"(spectrum)"elf.payload_copy)
         pass
-
+    
 
     # 0x2c 0x00 - get at start of PTT and occaionally in RX
     # 0x2c 0x01 - get at most(but not all) mode changes.  Some are skipped.
@@ -640,31 +644,16 @@ class BandDecoder(): #OutputHandler):
         self.modeA  = self.payload_copy[0x00bc]
         self.filter = self.payload_copy[0x00bd]+1
         self.datamode = self.payload_copy[0x00be]
-        self.frequency()
+        self.frequency(1, 1)
 
 
     # PTT sequence
-    # 0xe8-00 - see Github Wiki pages for examples of mesaage ID flow
-    # 0xe8-01 is spectrum data
-    def ptt(self):
-        #self.hexdump(self.payload_copy)
-        #print("Length",self.payload_len)
-
-        if self.check_msg_valid():
-            return
-
+    def ptt(self, PTT):
         # watch for PTT value changes
         if (self.vfoa_band != ""):   # block PTT until we know what band we are on
-            #print("PTT called")
-
-            if self.payload_ID != 0x0000:
-                if self.frequency_init == 0:
-                    self.frequency()
-                    self.frequency_init = 1
-                self.ptt_state = self.payload_copy[0x00ef]
-            else:
-                self.ptt_state = 0
-                #self.__ptt_state_last = 255
+            #print("PTT called")    
+            self.ptt_state = PTT
+            #self.__ptt_state_last = 255
 
             if (self.ptt_state != self.__ptt_state_last):
                 #print("PTT state =", self.ptt_state)
@@ -715,12 +704,6 @@ class BandDecoder(): #OutputHandler):
                 self.__ptt_state_last = self.ptt_state
 
 
-    def TX_on(self):
-        print("(Tx_on) Transmitting... - sometimes not")
-        self.hexdump(self.payload_copy)
-        print("(TX_on) Length:", self.payload_len)
-
-
     def dump(self):
         print("Dump for message 0x"+format(self.payload_ID,"04x")+"  Len:", format(self.payload_len), flush=True)
         self.hexdump(self.payload_copy)
@@ -756,14 +739,14 @@ class BandDecoder(): #OutputHandler):
         tsec=self.bcd_hex_to_decimal(str(self.payload_copy[0xae]))
         #print("Date: %02s/%02s/%02s  Time: %02s:%02s:%02s" % (tmon,tday,tyr,thr,tmin,tsec), flush=True)
 
+
     def unhandled(self):
         return "unhandled message"
 
 
     def case_default(self):
-        self.hexdump(self.payload_copy)
-        __payload_len = len(self.payload_copy)
-        print("(case_default) Unknown message,ID:0x"+format(self.payload_ID,'04x')+"  Length:", __payload_len, flush=True)
+        print(rd(buffer))
+        print("(case_default) Unknown message,ID:",flush=True)
         return "no match found"
 
 
@@ -912,12 +895,11 @@ def Convert_to_MH():
     #  Get from GPS Serial input later
     p_latitude=float(Latitude)   # convert string to float
     p_longitude=float(Longitude)
-    print("here2", p_latitude, p_longitude)
     
     positionToMaidenhead(m)
     if m:
         Grid_Square = ''.join(chr(value) for value in m)
-        print("Grid_Square", Grid_Square)
+        #print("Grid_Square", Grid_Square)
         return 1  # Success
     else:
         Grid_Square = "Invalid"
@@ -934,6 +916,14 @@ def bcdByte(x):
     return f        
     #y = (((x & 0xf0) >> 4) * 10) + (x & 0x0f)
     #return y
+
+
+def case_default(self, cmd, buffer):
+    return
+    #print("CI-V Command ID:", cmd, buffer)
+    #self.hexdump(buffer)
+    #print("default")
+    pass
 
 
 def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_buffer):
@@ -964,19 +954,25 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
 
         case cmds.CIV_C_F25A.value | cmds.CIV_C_F25B.value | cmds.CIV_C_F_READ.value | cmds.CIV_C_F_SEND.value | cmds.CIV_C_F1_SEND.value:
             if  ((data_len == 5 or (radio_address == IC905 and data_len == 6)) and (rd_buffer[4] == 0 or rd_buffer[4] == 3 or rd_buffer[4] == 5 or rd_buffer[4] == 0x25)):
-                    mul = 1
-                    f = 0
-                    for i in (n + data_start_idx  for n in range(data_start_idx + data_len)): 
-                    #for (i = data_start_idx; i < data_start_idx + data_len; i++):
-                        if (rd_buffer[i] == 0xfd):
-                            continue  #spike
-                        f += (rd_buffer[i] & 0x0f) * mul
-                        mul *= 10  # * decMulti[i * 2 + 1];
-                        f += (rd_buffer[i] >> 4) * mul
-                        mul *= 10  #  * decMulti[i * 2];
-                    #print("CIV_Action:  Freq:", f, flush = True);
-                    #read_Frequency(f, data_len);
-                    bd.frequency(f)
+                #print("cmd:%d  message:%s" % (cmd_num, [hex(num) for num in rd_buffer][0:msg_len]))   #self.case_default(cmd_num, rd_buffer)     # anything we have not seen yet comes to here
+                mul = 1
+                f = 0
+                for i in (n + data_start_idx  for n in range(data_start_idx + data_len)): 
+                #for (i = data_start_idx; i < data_start_idx + data_len; i++):
+                    if (rd_buffer[i] == 0xfd):
+                        continue  #spike
+                    f += (rd_buffer[i] & 0x0f) * mul
+                    mul *= 10  # * decMulti[i * 2 + 1];
+                    f += (rd_buffer[i] >> 4) * mul
+                    mul *= 10  #  * decMulti[i * 2];
+                #print("CIV_Action:  Freq:", f, flush = True);
+                #read_Frequency(f, data_len);
+                if rd_buffer[5] == 0:
+                    bd.selected_vfo = f
+                if rd_buffer[4] == 0x25 and rd_buffer[5] == 1:
+                    bd.unselected_vfo = f
+                    #print("VFOB", bd.unselected_vfo)
+                bd.frequency(bd.selected_vfo, bd.unselected_vfo)   #  0 is vfoa, 1 is vfo b
         
         case cmds.CIV_C_TX.value:  # Used to request RX TX status from radio
             #if (1):
@@ -991,22 +987,23 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                         #PTT_Output(band, PTT);    # If that is not available, then use the radio polled TX state .
                         print("CIV_Action: TX Status = %d" % (PTT))
                         TX_last = PTT
+                        bd.ptt(PTT)
                         # Call PTT output here rather than in teh main loop to avoid any loop delay time.
 
         case cmds.CIV_C_SPLIT_READ.value:
             bd.split_status = rd_buffer[data_start_idx]
             bd.write_split(bd.split_status)
-            print("CIV_Action: CI-V Returned Split status:", bd.split_status);     
+            #print("CIV_Action: CI-V Returned Split status:", bd.split_status);     
 
         case cmds.CIV_C_PREAMP_READ.value:
             bd.preamp_status = rd_buffer[data_start_idx]
-            print("CIV_Action: CI-V Returned Preamp status:", bd.preamp_status);
+            #print("CIV_Action: CI-V Returned Preamp status:", bd.preamp_status);
             #displayAttn()
             #displayPreamp()        
                 
         case cmds.CIV_C_ATTN_READ.value:
             bd.atten_status = rd_buffer[data_start_idx]
-            print("CIV_Action: CI-V Returned Attenuator status:", bd.atten_status);
+            #print("CIV_Action: CI-V Returned Attenuator status:", bd.atten_status);
             #displayAttn()
             #displayPreamp()
             
@@ -1029,6 +1026,38 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
 
             # get current time and correct or set time zone offset
             #setTime(_hr,_min,_sec,_day,_month,_yr);  // apply offset in time set function
+
+        case cmds.CIV_C_F26A.value | cmds.CIV_C_F26B.value | cmds.CIV_C_F26.value:  #case CIV_C_F26_SEND:
+            print("cmd:%d  message:%s" % (cmd_num, [hex(num) for num in rd_buffer][0:msg_len])) 
+            if (rd_buffer[data_start_idx] == 0x00):   # 0 is selected VFO field 
+                # Store the mode, filt an datamode value per band      
+                radio_mode = rd_buffer[data_start_idx+1]  # hex value
+                if (rd_buffer[data_start_idx+2] == 1):
+                    radio_data = 1 
+                else:
+                    radio_data = 0   # 0-1  limit to 0 or 1 answer
+                if (rd_buffer[data_start_idx+3] < 4):
+                    radio_filter = rd_buffer[data_start_idx+3]
+                else:
+                    radio_filter = 1;  # 1-3, make 1 if a bad value
+                i = 0
+                self.modeA = radio_mode
+                self.filter = radio_filter
+                self.datamode = radio_data
+                print("CIV_Action: Extended Mode Info, Mode: %d  DataMode %d  Filt: %d" % (radio_mode, radio_data, radio_filter))
+                return  #  finish the conversion below
+                
+                for i in range(MODES_NUM):
+                    if ((modeList[i].mode_num == radio_mode) and (modeList[i].data == radio_data)): # convert to our list index and also validate number received
+                        mode_idx = i  # mode is in HEX
+                        break  # found our match, exit loop          
+                if (i >= MODES_NUM):   # if i reaches the top of the list then a match was not found, skip out
+                    print("CIV_Action: ERROR: Extended Mode Info, Invalid Mode: %X" % (radio_mode))
+                else:  # we have a vaid match, finish up.
+                    datamode = radio_data  # data on/off  0-1
+                    filt = radio_filter    # filter setting 1-3
+                    print("CIV_Action: Extended Mode Info, ModeNum: %d   Mode: %s   DATA: %s   Filt: %s" % (mode_idx, modeList[mode_idx][mode_label], ModeStr[datamode], FilStr[filt]))
+            # else the changes are for the unselected VFO
 
         case cmds.CIV_C_MY_POSIT_READ.value:
             #print("Process time, date, location data_len = ", data_len, rd_buffer)
@@ -1081,7 +1110,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
             else:
                 Latitude = " {:.4f}".format(lati)
             k += 1
-            print("CIV_Action: Latitude Converted to dd mm ss format: Deg=%f  min=%f  lat=%f  string=%s" % (lati_deg, lati_min, lati, Latitude))
+            #print("CIV_Action: Latitude Converted to dd mm ss format: Deg=%f  min=%f  lat=%f  string=%s" % (lati_deg, lati_min, lati, Latitude))
 
             # Longitude  01.22.01.98.70.  00.
             longi_deg  = bcdByte(rd_buffer[data_start_idx+k])*100    # 100  first nibble is always 0
@@ -1109,9 +1138,9 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
             #strcpy(GPS_Msg, "4746.92382,N,12201.98606,W\0"};   // test string
             #ConvertToMinutes(GPS_Msg);       
             # Here I directly converted to what Convert_to_MH wants
-            print("Lat Long", Latitude, Longitude)
+            #print("Lat Long", Latitude, Longitude)
             Convert_to_MH();
-            print("CIV_Action: GPS Converted: Lat = %s  Long = %s  Grid Square is %s", Latitude, Longitude, Grid_Square)
+            print("CIV_Action: GPS Converted: Lat = %s  Long = %s  Grid Square is %s" % (Latitude, Longitude, Grid_Square))
             #//ESP_LOGI(TAG, "CIV_Action: ** Time from Radio is: ");
 
             _hr = _min = _sec = _month = _day = _yr = 1
@@ -1136,15 +1165,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
             #setTime(_hr,_min,_sec,_day,_month,_yr)  # display UTC time
             print("UTC Time: %d:%d:%d  %d/%d/20%d" % (_hr,_min,_sec,_month,_day,_yr))
 
-        case _: bd.case_default()     # anything we have not seen yet comes to here
-
-    def case_default(self):
-        #self.hexdump(self.payload_copy)
-        #__payload_len = len(self.payload_copy)
-        #print("(case_default) Unknown message,ID:0x"+format(self.payload_ID,'04x')+"  Length:", __payload_len, flush=True)
-        #return "no match found"
-        print("default")
-
+        case _ : print("Unhandled message cmd:%d  message:%s" % (cmd_num, [hex(num) for num in rd_buffer][0:msg_len]))   #self.case_default(cmd_num, rd_buffer)     # anything we have not seen yet comes to here
 
 #  __________________________________________________________________
 #
@@ -1377,7 +1398,82 @@ def read_port(ser):
             add(c)    ## usb loop task will pull this data out
             if (c == 0xfd):  ## end of a complete message, process it.
                 processCatMessages()
+
+
+def poll_radio_long(ser):
+    #try:   
+        #ser.write(sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0))
+        #time.sleep(0.1)  #give the serial port sometime to receive the data
+        #read_port(ser)
             
+        #ser.write(sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+            
+        #print("Get UTC offset")
+        if radio_address == IC705:
+            ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_705.value, 0, 0))
+        if radio_address == IC905:
+            ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_905.value, 0, 0))
+        if radio_address == IC9700:
+            ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_9700.value, 0, 0))
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        ser.write(sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0))
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+
+    #except Exception (e):
+    #    print("error communicating...: " + str(e))
+
+
+def poll_radio_short(ser):
+    #try:
+        ser.write(sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0))
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+            
+        ser.write(sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0))
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        
+    #except Exception (e):
+    #    print("error communicating...: " + str(e))
+
+
+def poll_radio_shorter(ser):
+    #try:
+        # Add mode and filter here
+        # also could use cmds.CIV_C_F26A.value | cmds.CIV_C_F26B.value
+        #ser.write(sendCatRequest(cmds.CIV_C_F26A.value, 0, 0))   # mode, filter, datamode
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        
+        ser.write(sendCatRequest(cmds.CIV_C_F25A.value, 0, 0))  # selected VFO freq
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        
+        ser.write(sendCatRequest(cmds.CIV_C_F25B.value, 0, 0))  # unselcted vfo freq
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        
+        ser.write(sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0))   # split mode
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+
+    #except Exception (e):
+    #    print("error communicating...: " + str(e))
+     
+            
+def poll_radio_PTT(ser):
+    #try:   
+        ser.write(sendCatRequest(cmds.CIV_C_TX.value, 0, 0))
+        time.sleep(0.1)  #give the serial port sometime to receive the data
+        read_port(ser)
+        
+    #except Exception (e):
+    #    print("error communicating...: " + str(e))
+
 
 def serial_sniffer(args):
     #initialization and open the port
@@ -1415,7 +1511,7 @@ def serial_sniffer(args):
             ser.flushOutput()#flush output buffer, aborting current output 
                              #and discard all that is in buffer
             
-            ser.write(sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0))
+            ser.write(sendCatRequest(cmds.CIV_C_F25B.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port(ser)
             
@@ -1431,31 +1527,20 @@ def serial_sniffer(args):
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port(ser)
             
-            ser.write(sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0))
+            #ser.write(sendCatRequest(cmds.CIV_C_F26A.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port(ser)
             
-            ser.write(sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0))
-            time.sleep(0.1)  #give the serial port sometime to receive the data
-            read_port(ser)
+            poll_radio_long(ser)
+            poll_radio_short(ser)
+            poll_radio_shorter(ser)
+            poll_radio_PTT(ser)
+            poll_long = RepeatedTimer(300, poll_radio_long, ser)
+            poll_PTT = RepeatedTimer(1, poll_radio_PTT, ser)
+            poll_short = RepeatedTimer(20, poll_radio_short, ser)
+            poll_shorter = RepeatedTimer(1, poll_radio_shorter, ser)
+            print("Polling timer thread enabled:", flush=True)
             
-            ser.write(sendCatRequest(cmds.CIV_C_TX.value, 0, 0))
-            time.sleep(0.1)  #give the serial port sometime to receive the data
-            read_port(ser)
-            
-            #print("Get UTC offset")
-            if radio_address == IC705:
-                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_705.value, 0, 0))
-            if radio_address == IC905:
-                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_905.value, 0, 0))
-            if radio_address == IC9700:
-                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_9700.value, 0, 0))
-            time.sleep(0.2)  #give the serial port sometime to receive the data
-            read_port(ser)
-            ser.write(sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0))
-            time.sleep(0.2)  #give the serial port sometime to receive the data
-            read_port(ser)
-
             print("Main loop, waiting for RX events")
             while (1):
                 #endCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0)
@@ -1473,6 +1558,10 @@ def serial_sniffer(args):
         bd.wcrite_band(bd.vfoa_band)
         print('Done')
         dht.stop()
+        poll_long.stop()
+        poll_short.stop()
+        poll_shorter.stop()
+        poll_PTT.stop()
         #dc.stop()
 
     finally:
