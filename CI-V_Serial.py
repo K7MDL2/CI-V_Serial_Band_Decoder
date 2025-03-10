@@ -12,6 +12,7 @@ from datetime import datetime as dtime
 from enum import Enum, auto
 import copy
 from CIV import *
+import math
 
 #  if dht is enabled, and connection is lost, ther program will try to recover the connection during idle periods
 dht11_enable = True  # enables the sensor and display of temp and humidity
@@ -38,6 +39,18 @@ IC705 = 0xa4
 IC905 = 0xac
 IC9700 = 0xa2
 RADIO_ADDR = ALL_RADIOS   # default ALL_RADIOS
+use_wired_PTT = 0  # 0 = poll for TX status, 1 use GPIO input
+PTT = 0
+TX_last = 0
+p_longitude = 0.0
+p_latitude = 0.0   #used with grid sqaure calc
+Longitude = None
+Latitude = None
+Grid_Square = None
+hr_off = None
+min_off = None
+shift_dir = None
+UTC = 0  # 0 = local, 1 = UTC time format
 
 class OutputHandler:
 
@@ -506,61 +519,9 @@ class BandDecoder(): #OutputHandler):
             " A:"+format(self.atten_status, "1"),
             " PTT:"+self.colored(115,195,110,format(self.ptt_state, "1")),
             #" Menu:"+format(self.in_menu, "1"),   #  this toggles 0/1 when in menus, and/or when there is spectrum flowing not sure which
-            " Src:0x"+format(self.payload_ID, "04x"),
+            #" Src:0x"+format(self.payload_ID, "04x"),
             #" T:%(t)0.1f°F  H:%(h)0.1f%%  CPU:%(c)s°C" % {"t": TempF, "h": Humidity, "c": cpu}, # sub in 'temp' for deg C
             flush=True)
-
-
-    # If we see corrupt values then look at the source.
-    # Some messages are overloaded - meaning they can have radio
-    #   status or have other spectrum like data in the same length
-    #   and ID+Attrib combo.  Calling check_msg_valid to filter out
-    #   bad stuff based on observed first row byte patterns
-
-    def case_x18(self):  # process items in message id # 0x18
-        #self.hexdump(self.payload_copy)
-        #print("(ID:18) Length",self.payload_len)
-
-        if self.check_msg_valid():
-            return
-
-        self.split_status = self.payload_copy[0x001b] # message #0xd400 @ 0x0001
-        # There is no preamp or atten on bands above 23cm
-        if (self.vfoa_band == "13cm" or self.vfoa_band == "6cm"):
-            self.atten_status = 0
-            self.preamp_status = 0
-        else:
-            self.atten_status = self.payload_copy[0x011d]
-            self.preamp_status = self.payload_copy[0x011c]
-        self.modeA = self.payload_copy[0x00bc]
-        self.filter = self.payload_copy[0x00bd]+1
-        self.datamode = self.payload_copy[0x00be]
-        self.in_menu = self.payload_copy[0x00d8]
-        self.frequency(self.selected_vfo)
-        #self.p_status("ID:18") # print out our state
-
-
-    # get this message when split is changed
-    #  x18 has the status
-    # process items in message #0xd4 0x00
-    # attr = 01 is long and mostly zeros
-    # d400 can be filled with other type data on some occasions, maybe band specific, not sure.
-
-    def case_xD4(self):
-        #self.hexdump(self.payload_copy)
-        #print("(ID:D4) Length",self.payload_len)
-
-        if self.check_msg_valid():
-            return
-
-        self.split_status = self.payload_copy[0x001b] # message #0xd400 @ 0x0001
-        #self.split_status = self.payload_copy[0x00b3] # message #0xd400 @ 0x0001
-        self.modeA = self.payload_copy[0x00bc]
-        self.filter = self.payload_copy[0x00bd]+1
-        self.datamode = self.payload_copy[0x00be]
-        self.in_menu = self.payload_copy[0x00d8]
-        self.frequency(self.selected_vfo)
-        #self.p_status("ID:D4") # print out our state
 
 
     # convert little endian bytes to int frequency
@@ -870,6 +831,109 @@ def read_config(config_file):
     except Exception as e:
             print(f"An error occurred: {e}")
 
+def setTime(hr, min, sec, mday, month, yr):  # modifed to match arduino TimeLib versionq}:
+#void setTime(int yr, int month, int mday, int hr, int minute, int sec, int isDst)  // orignal example
+    setenv("TZ", "UTC", 1)
+    tzset()
+
+    tm.tm_year = yr - 1900   # Set date
+    tm.tm_mon = month-1
+    tm.tm_mday = mday
+    tm.tm_hour = hr      # Set time
+    tm.tm_min = min
+    tm.tm_sec = sec
+    #tm.tm_isdst = isDst  # 1 or 0
+    tm.tm_isdst = 0  # 1 or 0  // setting to 0 for UTC only use
+    #t = mktime(&tm)
+    t = mktime(tm)
+    #ESP_LOGI(TAG, "Setting time: %s", asctime(&tm));
+    #char *myDate0 = ctime(&t);
+    #ESP_LOGI(TAG, "0-myDate: %s", myDate0);
+
+    #
+    # The algorithm is fairly straightforward. The scaling array provides divisors to divide up the space into the required number of sections,
+    # which is 18 for for the field, 10 for the square, 24 for the subsquare, 10 for the extended square, then 24, then 10. 
+    # The limit is 6 pairs which is 2 more than is used even in the most detailed versions (8 characters in all). 
+    # The divisor is also used in the fmod function to narrow down the range to the next highest order square that we�re dividing up.
+    # The scaling array could be precalculated, but I figure the optimizing compiler would take care of that. 
+    # I also thought the values could be scaled up at the beginning of the function, then use integer arithmetic to do the conversion. 
+    # It might be a bit faster.
+
+    #To run it �./geo lat long�, e.g. �./geo 43.999 -79.495� which yields FN03gx09
+    #  Parse the GPS NMEA ASCII GPGGA string for the time, latitude and longitude 
+# ---------------------------------------------------------------------------------------------------------
+
+def positionToMaidenhead(m):
+    pairs=4
+    scaling = [(360.0),
+               (360.0/18.0),
+               ((360.0/18.0)/10.0),
+               (((360.0/18.0)/10.0)/24.0),
+               ((((360.0/18.0)/10.0)/24.0)/10.0),
+               (((((360.0/18.0)/10.0)/24.0)/10.0)/24.0),
+               ((((((360.0/18.0)/10.0)/24.0)/10.0)/24.0)/10.0)]
+    i = 0
+    index = 0
+    global p_longitude
+    global p_latitude
+
+    for i in range(pairs):
+        index = math.floor(math.fmod((180.0+p_longitude), scaling[i])/scaling[i+1])
+        if (i&1):
+            m[i*2] = 0x30+index
+        elif (i&2):
+            m[i*2] = 0x61+index 
+        else: 
+            m[i*2] = 0x41+index
+        
+        index = math.floor(math.fmod((90.0+p_latitude), (scaling[i]/2))/(scaling[i+1]/2))
+        if (i&1):
+            m[i*2+1] = 0x30+index 
+        elif (i&2):
+            m[i*2+1] = 0x61+index 
+        else:
+            m[i*2+1] = 0x41+index
+        
+    m[pairs*2]=0
+    return m  # success
+
+
+#  Convert Alt and Lon to MH now */
+def Convert_to_MH():
+    global p_longitude
+    global p_latitude
+    global Longitude
+    global Latitude
+    global Grid_Square
+    m = [0] * 9
+    
+    # if(GPS_Status == GPS_STATUS_LOCK_INVALID || msg_Complete == 0)   
+    #     return 1;  /* if we are here with invalid data then exit.  LAt and LOnwill have text which cannot be computered of cour     */
+    #  Get from GPS Serial input later
+    p_latitude=float(Latitude)   # convert string to float
+    p_longitude=float(Longitude)
+    print("here2", p_latitude, p_longitude)
+    
+    positionToMaidenhead(m)
+    if m:
+        Grid_Square = ''.join(chr(value) for value in m)
+        print("Grid_Square", Grid_Square)
+        return 1  # Success
+    else:
+        Grid_Square = "Invalid"
+        return 0  # fail -  Can use later to skip displaying anything when have invalid or no GPS input  
+
+
+def bcdByte(x):
+    f = 0
+    mul = 1
+    f += (x & 0x0f) * mul
+    mul *= 10
+    f += (x >> 4) * mul
+    mul *= 10
+    return f        
+    #y = (((x & 0xf0) >> 4) * 10) + (x & 0x0f)
+    #return y
 
 
 def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_buffer):
@@ -880,6 +944,17 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
     global IC905
     global IC9700
     global RADIO_ADDR
+    global use_wired_PTT
+    global TX_last
+    global Longitude
+    global Latitude
+    global Grid_Square
+    global p_longitude
+    global p_latitude
+    global hr_off
+    global min_off
+    global shift_dir
+    global UTC
 
     #print("CIV_Action: Entry - cmd_num = %x data_len= %d  cmd = %X  data_start_idx = %d  data_len = %d  rd_buffer:%X %X %X %X %X %X %X %X %x %X %X", cmd_num, data_len, cmd_List[cmd_num][2],
     #         data_start_idx, data_len, rd_buffer[0], rd_buffer[1], rd_buffer[2], rd_buffer[3], rd_buffer[4], rd_buffer[5], rd_buffer[6],
@@ -902,9 +977,166 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                     #print("CIV_Action:  Freq:", f, flush = True);
                     #read_Frequency(f, data_len);
                     bd.frequency(f)
+        
+        case cmds.CIV_C_TX.value:  # Used to request RX TX status from radio
+            #if (1):
+            if not (data_len != 1 or (not(rd_buffer[4] == 0x1C or rd_buffer[5] == 0x00))):                
+                if rd_buffer[6] == 1:
+                    PTT = True 
+                else: 
+                    PTT = False
+                #print("PTT=", PTT)
+                if (TX_last != PTT):
+                    if not use_wired_PTT:        # normally the wired input will pass thru the PTT from radio hardware PTT. 
+                        #PTT_Output(band, PTT);    # If that is not available, then use the radio polled TX state .
+                        print("CIV_Action: TX Status = %d" % (PTT))
+                        TX_last = PTT
+                        # Call PTT output here rather than in teh main loop to avoid any loop delay time.
+
+        case cmds.CIV_C_SPLIT_READ.value:
+            bd.split_status = rd_buffer[data_start_idx]
+            bd.write_split(bd.split_status)
+            print("CIV_Action: CI-V Returned Split status:", bd.split_status);     
+
+        case cmds.CIV_C_PREAMP_READ.value:
+            bd.preamp_status = rd_buffer[data_start_idx]
+            print("CIV_Action: CI-V Returned Preamp status:", bd.preamp_status);
+            #displayAttn()
+            #displayPreamp()        
+                
+        case cmds.CIV_C_ATTN_READ.value:
+            bd.atten_status = rd_buffer[data_start_idx]
+            print("CIV_Action: CI-V Returned Attenuator status:", bd.atten_status);
+            #displayAttn()
+            #displayPreamp()
+            
+        case cmds.CIV_C_UTC_READ_9700.value | cmds.CIV_C_UTC_READ_905.value | cmds.CIV_C_UTC_READ_705.value:
+            #print("processCatMessages: UTC Offset, Len = %d" % (data_len))
+            #               pos     sub cmd  len        1    2     3          term
+            # FE.FE.E0.AC.  1A.05.  01.81.   3         07.  00.   01.         FD
+            # FE.FE.E0.AC.  1A.05.           datalen   hr   min   1=minus 0=+
+            #                                     offset time 00 00 to 14 00    Shift dir 00 + and 01 is -
+            # when using datafield, add 1 to prog guide index to account for first byte used as length counter - so 3 is 4 here.
+            hr_off = bcdByte(rd_buffer[data_start_idx+0])
+            min_off = bcdByte(rd_buffer[data_start_idx+1])
+            shift_dir = bcdByte(rd_buffer[data_start_idx+2])
+
+            if (shift_dir):
+                hr_off = hr_off * -1  # invert  - used by UTC set function
+                min_off = min_off * -1 # invert  - used by UTC set function
+
+            print("UTC Offset: %d:%d" % ( hr_off, min_off))
+
+            # get current time and correct or set time zone offset
+            #setTime(_hr,_min,_sec,_day,_month,_yr);  // apply offset in time set function
+
+        case cmds.CIV_C_MY_POSIT_READ.value:
+            #print("Process time, date, location data_len = ", data_len, rd_buffer)
+            if (rd_buffer[data_start_idx] == 0xFF):
+                print("***Error: Position/Time Not available, GPS connected? - Data = %X" % (rd_buffer[data_start_idx]))
+                return
+            # if (data_len == 23) then altitude is invalid and not sent out, skip
+            skip_altitude = False
+            if (data_len == 23):
+                skip_altitude = True   # skip 4 bytes when looking for time and date.
+            elif (data_len != 27):
+                return
+                
+            #print(" Position, Len = %d" % (data_len))            
+            #               pos                  1  2  3  4   5     6  7  8  9  10   11       12 13 14 15   16 17   18 19 20   21 22  23  24  25 26 27  term
+            # FE.FE.E0.AC.  23.00.  datalen 27  47.46.92.50.  01.   01.22.01.98.70.  00.      00.15.59.00.  01.05.  00.00.07.  20.24. 07. 20. 23.32.45. FD
+            #                                   47,46,92,40,  01,   01,22,01,99,60,  00,                    00,58,  00,01,09,  20,24, 08, 28, 11,07,41  FD
+            #                                                                                 00,15,64,00,  00,72,  00,00,20
+            #                               lat 4746.9250   01(N)     12201.9870    00(-1) long  155.900m alt  105deg   0.7km/h   2024   07  20  23:32:45 UTC
+            # when using datafield, add 1 to prog guide index to account for first byte used as length counter - so 27 is 28 here.
+        
+            # Extract and Process Lat and Long for Maidenhead Grid Square stored in global Grid_Square[]
+            # char GPS_Msg[NMEA_MAX_LENGTH] = {}; // {"4746.92382,N,12201.98606,W\0"};
+            # uint8_t i = 0;
+            k = 0
+            lati_deg = 0
+            longi_deg = 0
+            lati_min = 0
+            longi_min = 0
+            lati = 0
+            longi = 0
+            temp_str = ""
+
+            # reformat latitude
+            # 47.46.93.10.  01.  
+            lati_deg  = bcdByte(rd_buffer[data_start_idx+k])         #  47 deg
+            k += 1
+            lati_min  = bcdByte(rd_buffer[data_start_idx+k])         #  46. min
+            k += 1
+            lati_min += bcdByte(rd_buffer[data_start_idx+k]) /100    #    .93
+            k += 1
+            lati_min += bcdByte(rd_buffer[data_start_idx+k]) /10000  #    .0010  last nibble is always 0
+            k += 1
+            lati_min /= 60
+            lati = lati_deg+lati_min
+            # if 1 then North, else south will be negative
+            sign = bcdByte(rd_buffer[data_start_idx+k])  # use N/S to set neg or pos
+            if not sign:
+                Latitude = "-{:.4f}".format(lati)      #the ftoa function does not handle neg numbers */
+            else:
+                Latitude = " {:.4f}".format(lati)
+            k += 1
+            print("CIV_Action: Latitude Converted to dd mm ss format: Deg=%f  min=%f  lat=%f  string=%s" % (lati_deg, lati_min, lati, Latitude))
+
+            # Longitude  01.22.01.98.70.  00.
+            longi_deg  = bcdByte(rd_buffer[data_start_idx+k])*100    # 100  first nibble is always 0
+            k += 1
+            longi_deg += bcdByte(rd_buffer[data_start_idx+k])        #  22 deg
+            k += 1
+            longi_min  = bcdByte(rd_buffer[data_start_idx+k])        #  01 min
+            k += 1
+            longi_min += bcdByte(rd_buffer[data_start_idx+k]) /100   #    .98
+            k += 1
+            longi_min += bcdByte(rd_buffer[data_start_idx+k]) /10000 #    .0070
+            k += 1
+            longi_min /= 60  # convert minutes to mm.mmm
+            longi = longi_deg+longi_min  # make 1 number
+            #if 1 then E, else W will be negative
+            l_temp = bcdByte(rd_buffer[data_start_idx+k])
+            if not l_temp:
+                Longitude = "-{:.4f}".format(longi)
+            else:
+                Longitude = " {:.4f}".format(longi)
+            k += 1
+            #print("CIV_Action: Longitude Converted to dd mm ss format:  deg=%f   min=%f   long=%f  string=%s  %s" % (longi_deg, longi_min, longi, Latitude, Longitude))
+
+            # if using NMEA string then proved a formnatted string like belw and convert to minutes  
+            #strcpy(GPS_Msg, "4746.92382,N,12201.98606,W\0"};   // test string
+            #ConvertToMinutes(GPS_Msg);       
+            # Here I directly converted to what Convert_to_MH wants
+            print("Lat Long", Latitude, Longitude)
+            Convert_to_MH();
+            print("CIV_Action: GPS Converted: Lat = %s  Long = %s  Grid Square is %s", Latitude, Longitude, Grid_Square)
+            #//ESP_LOGI(TAG, "CIV_Action: ** Time from Radio is: ");
+
+            _hr = _min = _sec = _month = _day = _yr = 1
+            d_index = 0
+            if (skip_altitude):
+                d_index = 4
+
+            _hr = bcdByte(rd_buffer[data_start_idx+24-d_index]) #Serial.print(_hr); ESP_LOGI(TAG, ":")
+            _min = bcdByte(rd_buffer[data_start_idx+25-d_index]) #Serial.print(_min);ESP_LOGI(TAG, ":")
+            _sec = bcdByte(rd_buffer[data_start_idx+26-d_index]) #Serial.print(_sec);ESP_LOGI(TAG, " ")
+            
+            _month = bcdByte(rd_buffer[data_start_idx+22-d_index]) #Serial.print(_month);ESP_LOGI(TAG, ".")
+            _day = bcdByte(rd_buffer[data_start_idx+23-d_index]) #Serial.print(_day); ESP_LOGI(TAG, ".")
+            _yr = bcdByte(rd_buffer[data_start_idx+21-d_index]) #Serial.print(_yr); // yr can be 4 or 2 digits  2024 or 24                    
+            
+            #print("Raw Time: %d:%d:%d  %d/%d/20%d UTC=%d" % (_hr,_min,_sec,_month,_day,_yr,UTC))
+            #print("UTC=", UTC, hr_off, min_off)
+            #if not UTC:
+            #    #setTime(_hr+hr_off,_min+min_off,_sec,_day,_month,_yr)  # correct to local time                      
+            #    print("Local Time: %d:%d:%d  %d/%d/20%d" % (32-_hr+hr_off,_min+min_off,_sec,_month,_day,_yr))
+            #else:
+            #setTime(_hr,_min,_sec,_day,_month,_yr)  # display UTC time
+            print("UTC Time: %d:%d:%d  %d/%d/20%d" % (_hr,_min,_sec,_month,_day,_yr))
 
         case _: bd.case_default()     # anything we have not seen yet comes to here
-
 
     def case_default(self):
         #self.hexdump(self.payload_copy)
@@ -929,7 +1161,7 @@ def sendCatRequest(cmd_num, Data, Data_len):  # first byte in Data is length
     global CONTROLLER_ADDRESS
     global cmd_List
     buf_size = 50
-    print("sendCatRequest: Start Send")
+    #print("sendCatRequest: Start Send")
 
     msg_len = 0
     req1 = [ START_BYTE, START_BYTE, radio_address, CONTROLLER_ADDRESS ]
@@ -957,21 +1189,19 @@ def sendCatRequest(cmd_num, Data, Data_len):  # first byte in Data is length
 
     if (msg_len < buf_size - 1):  # ensure our data is not longer than our buffer
         send_str = req[0:msg_len]
-        print("sendCatRequest: ***Send CI-V Msg: %s" % (send_str))
+        #print("sendCatRequest: ***Send CI-V Msg: %s" % (send_str))
         loop_ct = 0
         #while (sending and loop_ct < 5):  # In case an overlapping send from IRQ call comes in, wait here until the first one is done.
         #    #vTaskDelay(pdMS_TO_TICKS(10));
         #    loop_ct += 1
         loop_ct = 0
-        sending = 1
-        #print("Send_CatRequest: *** Send Cat Request Msg - result = %d  END TX MSG, msg_len = %d", ser.write(req)  #, msg_len+1, 1000), msg_len)       
-        #send_str = [0xfe,0xfe,0xac,0xe0,0x27,0x11,0x00,0xfd]
-        print("sendCatRequest: ***Send TX data = ", serial.to_bytes(send_str))
+        #print("Send_CatRequest: *** Send Cat Request Msg - result = %d  END TX MSG, msg_len = %d", ser.write(req)  #, msg_len+1, 1000), msg_len)
+        #hex_array = [hex(num) for num in send_str][0:msg_len]
+        #  This is the main debugging print
+        #print("sendCatRequest: ***Send TX data = ", hex_array)
         #ser.write(send_str)
         #time.sleep(0.2)  #give the serial port sometime to receive the data
         #vTaskDelay(pdMS_TO_TICKS(10));
-        print("done")
-        sending = 0
         return serial.to_bytes(send_str)
     else:
         print("sendCatRequest: Buffer overflow")
@@ -1063,7 +1293,7 @@ def processCatMessages():
     if (data_len):
         msg_len = data_len
 
-        #print("processCatMessages", read_buffer, data_len)
+        #print("processCatMessages %s  length: %d" % (read_buffer, data_len))
 
         cmd_num = 255
         match = 0
@@ -1079,9 +1309,11 @@ def processCatMessages():
                 #print("radio_address_received = ", radio_address_received)
                 if (radio_address_received != 0 and radio_address == 0):
                     Get_Radio_address()
-                ##if (read_buffer[3] == radio_address) {
-                if (read_buffer[3] != 0):
-                    #if (read_buffer[2] == CONTROLLER_ADDRESS || read_buffer[2] == BROADCAST_ADDRESS)
+                #if (read_buffer[3] == radio_address) {
+                if (read_buffer[3] != CONTROLLER_ADDRESS):
+                    #hex_array = [hex(num) for num in read_buffer][0:msg_len]
+                    #print("processCatMessages %s  length: %d" % (hex_array, data_len))
+                    #if (read_buffer[2] != CONTROLLER_ADDRESS or read_buffer[2] == BROADCAST_ADDRESS):
                     for cmd_num in range(cmds.End_of_Cmd_List.value):  # loop through the command list structure looking for a pattern match        
                         #print("processCatMessages: list index = ", cmd_num, "cmd byte len = ", cmd_List[cmd_num][1], "cmd byte 1 = ", cmd_List[cmd_num][2])            
                         for i in (n + 1 for n in range(cmd_List[cmd_num][1])):   #Break out if no match. Make it to the bottom and you have a match
@@ -1091,7 +1323,7 @@ def processCatMessages():
                                 #print("processCatMessages: Skip this one - Matched 1 element: look at next field, if any left. CMD Body Length = ", cmd_List[cmd_num][1], "  CMD(i)  = ", hex(cmd_List[cmd_num][i+1]), "  next RX byte = ", read_buffer[3+i+1])
                                 match = 0
                                 break
-
+    
                             match += 1
                             #print("processCatMessages: Possible Match: Len = ", cmd_List[cmd_num][1], "CMD1 = ", read_buffer[4], "  CMD2  = ", read_buffer[5], " Data1/Term  = ",read_buffer[6])
 
@@ -1137,6 +1369,16 @@ def add(c):
         return -1
 
 
+def read_port(ser):
+    response = ser.readline()
+    if response != b'':
+        #print("read data: ", response, flush=True)
+        for c in response:
+            add(c)    ## usb loop task will pull this data out
+            if (c == 0xfd):  ## end of a complete message, process it.
+                processCatMessages()
+            
+
 def serial_sniffer(args):
     #initialization and open the port
 
@@ -1171,37 +1413,54 @@ def serial_sniffer(args):
 
             ser.flushInput() #flush input buffer, discarding all its contents
             ser.flushOutput()#flush output buffer, aborting current output 
-                        #and discard all that is in buffer
-            #write data
-            #sfreq = [0xfe,0xfe,0xac,0xe0,0x27,0x11,0x00,0xfd]
-            #ser.write(serial.to_bytes(sfreq))
-            #processCatMessages()
-            #time.sleep(2.6)  #give the serial port sometime to receive the data
-            #sfreq = [0xfe,0xfe,0xac,0xe0,0x03,0xfd]   # get frequency
-            #ser.write(serial.to_bytes(sfreq))
-            #sfreq = [0xfe,0xfe,0xac,0xe0,0x23,0x20,0xfd]   # get time, date, location
-            #ser.write(serial.to_bytes(sfreq))
-            #sfreq = [0xfe,0xfe,0xac,0xe0,0x03,0xfd]   # get frequency
-            #ser.write(serial.to_bytes(sfreq))
-            ser.write(sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0))
-            processCatMessages()
-            #ser.write(sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
-            time.sleep(0.2)  #give the serial port sometime to receive the data
+                             #and discard all that is in buffer
+            
             ser.write(sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0))
-            processCatMessages()
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            #ser.write(sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            ser.write(sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0))
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            ser.write(sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0))
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            ser.write(sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0))
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            ser.write(sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0))
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            ser.write(sendCatRequest(cmds.CIV_C_TX.value, 0, 0))
+            time.sleep(0.1)  #give the serial port sometime to receive the data
+            read_port(ser)
+            
+            #print("Get UTC offset")
+            if radio_address == IC705:
+                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_705.value, 0, 0))
+            if radio_address == IC905:
+                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_905.value, 0, 0))
+            if radio_address == IC9700:
+                ser.write(sendCatRequest(cmds.CIV_C_UTC_READ_9700.value, 0, 0))
+            time.sleep(0.2)  #give the serial port sometime to receive the data
+            read_port(ser)
+            ser.write(sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0))
+            time.sleep(0.2)  #give the serial port sometime to receive the data
+            read_port(ser)
 
+            print("Main loop, waiting for RX events")
             while (1):
                 #endCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0)
                 time.sleep(0.2)  #give the serial port sometime to receive the data
-                response = ser.readline()
-                if response != b'':
-                    #print("read data: ", response, flush=True)
-                    for c in response:
-                        add(c)    ## usb loop task will pull this data out
-                        if (c == 0xfd):  ## end of a complete message, process it.
-                            # call to processing function here
-                            processCatMessages()
-                            #print("EOF")
+                read_port(ser)
 
         else:
             print("cannot open serial port ")

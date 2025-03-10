@@ -267,9 +267,9 @@ cmd_List = [
     [cmds.CIV_C_F_READ,          1,0x03],                      # read operating frequency
     [cmds.CIV_C_F25A,            2,0x25,0x00],                 # read selected VFO (00) operating frequency
     [cmds.CIV_C_F25B,            2,0x25,0x01],                 # read unselected VFO (01)
-    [cmds.CIV_C_F26,        	 1,0x26],                      # read selected VFO m data, filt -  26 datafield template; selected VFO; mode, data on/off(0-1), filter (1-3);
-    [cmds.CIV_C_F26A,        	 2,0x26,0x00],                 # read/set selected VFO m data, filt
-    [cmds.CIV_C_F26B,       	 2,0x26,0x01],                 # read/set  un- selected VFO m data, filt
+    [cmds.CIV_C_F26,        	   1,0x26],                      # read selected VFO m data, filt -  26 datafield template; selected VFO; mode, data on/off(0-1), filter (1-3);
+    [cmds.CIV_C_F26A,        	   2,0x26,0x00],                 # read/set selected VFO m data, filt
+    [cmds.CIV_C_F26B,       	   2,0x26,0x01],                 # read/set  un- selected VFO m data, filt
     [cmds.CIV_C_F25A_SEND,       2,0x25,0x00],                 # set selected VFO frequency
     [cmds.CIV_C_F25B_SEND,       2,0x25,0x01],                 # set un-selected VFO frequency
 
@@ -285,9 +285,9 @@ cmd_List = [
     [cmds.CIV_C_LSB_D1_F2_SEND,  5,0x26,0x00,0x00,0x01,0x02],  # selected VFO; mod USB; Data ON;  RX_filter F2;
     [cmds.CIV_C_FM_D1_F1_SEND,   5,0x26,0x00,0x05,0x01,0x01],  # selected VFO; mod USB; Data ON;  RX_filter F2;
     
-    [cmds.CIV_C_ATTN_READ,   	1,0x11],                  	  # Attn read state
-    [cmds.CIV_C_ATTN_OFF,   		2,0x11,0x00],                 # Attn OFF
-    [cmds.CIV_C_ATTN_ON,    		2,0x11,0x10],                 # Attn 10dB (144, 432, 1200 bands only)
+    [cmds.CIV_C_ATTN_READ,   	   1,0x11],                  	  # Attn read state
+    [cmds.CIV_C_ATTN_OFF,   		 2,0x11,0x00],                 # Attn OFF
+    [cmds.CIV_C_ATTN_ON,    	   2,0x11,0x10],                 # Attn 10dB (144, 432, 1200 bands only)
     [cmds.CIV_C_SPLIT_READ,      1,0x0F],                      # read Split OFF
     [cmds.CIV_C_SPLIT_OFF_SEND,  2,0x0F,0x00],                 # set split OFF
     [cmds.CIV_C_SPLIT_ON_SEND,   2,0x0F,0x01],                 # Set split ON
@@ -317,18 +317,18 @@ cmd_List = [
     # the following three commands don't fit for IC7100 !!!
     [cmds.CIV_C_DATE,            4,0x1A,0x05,0x00,0x94],  		# + 0x20 0x20 0x04 0x27 for 27.4.2020
     [cmds.CIV_C_TIME,            4,0x1A,0x05,0x00,0x95],  		# + 0x19 0x57 for 19:57
-    #[cmds.CIV_C_UTC,           4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
+    #[cmds.CIV_C_UTC,            4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
     [cmds.CIV_C_UTC_READ_905,    4,0x1A,0x05,0x01,0x81],     #  Get UTC Offset
-    #[cmds.CIV_C_UTC_SEND,      4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
+    #[cmds.CIV_C_UTC_SEND,       4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
     [cmds.CIV_C_UTC_READ_705,    4,0x1A,0x05,0x01,0x70],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
     [cmds.CIV_C_UTC_READ_9700,   4,0x1A,0x05,0x01,0x84],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
-    [cmds.CIV_C_DUPLEX_READ,		1,0x0C],          	    	  # read Duplex Offset  - has 3 bytes frequency offset data
+    [cmds.CIV_C_DUPLEX_READ,		 1,0x0C],          	    	  # read Duplex Offset  - has 3 bytes frequency offset data
     [cmds.CIV_C_DUPLEX_SEND,     1,0x0D],	          	    	# send Duplex Offset
-    [cmds.CIV_C_RIT_XIT,			2,0x21,0x00],          	    # read or send RIT/XIT Offset  - has 3 bytes frequency offset data  XIT and RIT share this Offset value
-    [cmds.CIV_C_RIT_ON_OFF,		2,0x21,0x01],	          	  # send or send RIT ON or Off status 00 = , 01 = t
-    [cmds.CIV_C_XIT_ON_OFF,		2,0x21,0x02],	          	  # send or send XIT Offset
-    [cmds.CIV_C_RADIO_OFF,		2,0x18,0x00],	          	  # Turn Off the radio
-    [cmds.CIV_C_RADIO_ON,		2,0x18,0x01],	          	  # Turn on the radio
+    [cmds.CIV_C_RIT_XIT,			   2,0x21,0x00],          	    # read or send RIT/XIT Offset  - has 3 bytes frequency offset data  XIT and RIT share this Offset value
+    [cmds.CIV_C_RIT_ON_OFF,		   2,0x21,0x01],	          	  # send or send RIT ON or Off status 00 = , 01 = t
+    [cmds.CIV_C_XIT_ON_OFF,		   2,0x21,0x02],	          	  # send or send XIT Offset
+    [cmds.CIV_C_RADIO_OFF,		   2,0x18,0x00],	          	  # Turn Off the radio
+    [cmds.CIV_C_RADIO_ON,		     2,0x18,0x01],	          	  # Turn on the radio
     [cmds.CIV_C_SCOPE_ON,        3,0x27,0x11,0x01],          # send/read Scope wave data output ON
     [cmds.CIV_C_SCOPE_OFF,       3,0x27,0x11,0x00],          # send/read Scope wave data output OFF
     [cmds.CIV_C_SCOPE_ALL,       1,0x27],                    # send/read Scope catch all to avoid no match found error outputs

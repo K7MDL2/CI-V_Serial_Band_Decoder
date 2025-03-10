@@ -13,4 +13,3 @@ StandardOutput=append:Decoder.log
 StandardError=file:Decoder.err 
 Restart=always
 RestartSec=1
-
