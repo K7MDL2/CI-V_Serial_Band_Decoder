@@ -1,4 +1,3 @@
-
 | Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |    Network Options | ![alt text][POE++] | ![alt text][VLAN] |
 | --- | --- | --- | --- | --- | --- |
 
