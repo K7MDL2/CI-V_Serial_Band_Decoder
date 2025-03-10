@@ -31,6 +31,8 @@ The code is a mashup of my USB CI-V Band Decoder C ported to Python, and the eth
 
 I initially looked at adding GPIO code to wfView and spotted a few places in that code to make such additions.  Then I thought I could simply run a standalone program using the virtual serial ports and not touch the wfView code so I cranked up the keyboard and produced this.  There is likely already a similar Linux and/or Windows CI-V decoder somewhere including commercial units but I wanted to do my own in Python for the reasons above.   My Desktop Band Decoder app is in Python but is my own comm protocol and is USB and ethernet based, targeting a Teensy custom PCB I designed.
 
+![{08761A0B-10AD-4B32-BB84-E7DC169C95C2}](https://github.com/user-attachments/assets/c0c2a633-0e7d-476a-afe4-d0a5ea7a3d41)
+
 This now has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is being ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  
 
 I am porting over selected CI-V library functions and poll the radio at startup.  They include polled PTT, date, time, UTC offset, location, preamp, attenuator, frequency, and split.  I calculate grid square to 8 places.  GPIO for relays is working.
@@ -38,10 +40,10 @@ I am porting over selected CI-V library functions and poll the radio at startup.
 ### ToDo
 
 To be added: 
-1. Timer thread to periodically poll the radio for split, TX, mode, filter, datamode, time, preamp, atten.  
-2. I also have to add GPIO input monitoring for wired PTT and hook it and the polled PTT into the existing PTT function.
-3. I have a 7" HDMI touchscreen I may add some graphics UI for.
-4. Get dynamic radio config switching working.
+1. Add GPIO PTT input monitoring for wired PTT and hook it and the polled PTT into the existing PTT function.  Currently polling every 1 sec for CI-V PTT status
+2. I have a 7" HDMI touchscreen I may add some graphics UI.
+3. Get dynamic radio config switching working.
+4. Finish mode and filter read. These are only useful for future screen display, not required for basic band decoder
    
 
 ### Setup and usage
