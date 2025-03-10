@@ -50,7 +50,7 @@ To be added:
 ### Setup and usage
 
 Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
-https://github.com/K7MDL2/IC905_Ethernet_Decoder
+[https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
 The main app name here is CI-V_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
  This permits parallel operation with the TCP905 version which is how things are in my dev environment.  The 'view_log' tool is now 'view_decoder_log'.
