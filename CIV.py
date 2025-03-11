@@ -241,6 +241,7 @@ class cmds(Enum):
     CIV_C_TRX_ON_OFF = auto()
     CIV_C_TRX_ID = auto()
     CIV_C_TX = auto()
+    CIV_C_TX_FREQ = auto()
     CIV_C_DATE = auto()
     CIV_C_TIME = auto()
     CIV_C_UTC_READ_905 = auto()
@@ -258,6 +259,9 @@ class cmds(Enum):
     CIV_C_SCOPE_ALL = auto()
     CIV_R_NO_GOOD = auto()
     CIV_R_GOOD = auto()
+    CIV_R_MAINSUBBAND = auto()
+    CIV_R_MAIN_BANDVFO = auto()
+    CIV_R_SUB_BANDVFO = auto()
     End_of_Cmd_List = auto()
 
 
@@ -285,7 +289,7 @@ cmd_List = [
     [cmds.CIV_C_LSB_D1_F2_SEND,  5,0x26,0x00,0x00,0x01,0x02],  # selected VFO; mod USB; Data ON;  RX_filter F2;
     [cmds.CIV_C_FM_D1_F1_SEND,   5,0x26,0x00,0x05,0x01,0x01],  # selected VFO; mod USB; Data ON;  RX_filter F2;
     
-    [cmds.CIV_C_ATTN_READ,   	   1,0x11],                  	  # Attn read state
+    [cmds.CIV_C_ATTN_READ,   	   1,0x11],                   	 # Attn read state
     [cmds.CIV_C_ATTN_OFF,   		 2,0x11,0x00],                 # Attn OFF
     [cmds.CIV_C_ATTN_ON,    	   2,0x11,0x10],                 # Attn 10dB (144, 432, 1200 bands only)
     [cmds.CIV_C_SPLIT_READ,      1,0x0F],                      # read Split OFF
@@ -295,7 +299,7 @@ cmd_List = [
     [cmds.CIV_C_AFGAIN,          2,0x14,0x01],                 # send/read AF Gain
     [cmds.CIV_C_RFPOWER,         2,0x14,0x0A],                 # send/read selected bands RF power
     [cmds.CIV_C_S_MTR_LVL,       2,0x15,0x02],                 # send/read S-meter level (00 00 to 02 55)  00 00 = S0, 01 20 = S9, 02 41 = S9+60dB
-    [cmds.CIV_C_PREAMP_READ,     2,0x16,0x02],             	  # read preamp state
+    [cmds.CIV_C_PREAMP_READ,     2,0x16,0x02],             	   # read preamp state
     [cmds.CIV_C_PREAMP_OFF,      3,0x16,0x02,0x00],            # send/read preamp 3rd byte is on or of for sending - 00 = OFF, 01 = ON
     [cmds.CIV_C_PREAMP_ON,       3,0x16,0x02,0x00],            # send/read preamp 3rd byte is on or of for sending - 00 = OFF, 01 = ON
     [cmds.CIV_C_PREAMP_ON2,      3,0x16,0x02,0x02],            # send/read preamp 3rd byte is on or of for sending - 00 = OFF, 01 = ON - not on 905
@@ -305,35 +309,39 @@ cmd_List = [
     [cmds.CIV_C_AGC_SLOW,        3,0x16,0x12,0x03],            # send/read AGC  01 = FAST, 02 = MID, 03 = SLOW
     [cmds.CIV_C_CW_MSGS,         1,0x17],                      # Send CW messages see page 17 of prog manual for char table
     [cmds.CIV_C_BSTACK,          2,0x1A,0x01],                 # send/read BandStack contents - see page 19 of prog manual.  
-                                                                    # data byte 1 0xyy = Freq band code
-                                                                    # dat abyte 2 0xzz = register code 01, 02 or 03
-                                                                    # to read 432 band stack register 1 use 0x1A,0x01,0x02,0x01
+                                                                  # data byte 1 0xyy = Freq band code
+                                                                  # dat abyte 2 0xzz = register code 01, 02 or 03
+                                                                  # to read 432 band stack register 1 use 0x1A,0x01,0x02,0x01
     [cmds.CIV_C_MY_POSIT_READ,   2,0x23,0x00],          	    # read my GPS Position
-    [cmds.CIV_C_MY_POSIT_DATA,   1,0x23],          	    	  # read my GPS Position
+    [cmds.CIV_C_MY_POSIT_DATA,   1,0x23],          	    	    # read my GPS Position
     [cmds.CIV_C_RF_POW,          2,0x14,0x0A],            		# send / read max RF power setting (0..255 == 0 .. 100%)
     [cmds.CIV_C_TRX_ON_OFF,      1,0x18],                 		# switch radio ON/OFF
     [cmds.CIV_C_TRX_ID,          2,0x19,0x00],            		# ID query
     [cmds.CIV_C_TX,              2,0x1C,0x00],            		# query of TX-State 00=OFF, 01=ON
+    [cmds.CIV_C_TX_FREQ,         2,0x1C,0x03],            		# query of current TX frequency
     # the following three commands don't fit for IC7100 !!!
     [cmds.CIV_C_DATE,            4,0x1A,0x05,0x00,0x94],  		# + 0x20 0x20 0x04 0x27 for 27.4.2020
     [cmds.CIV_C_TIME,            4,0x1A,0x05,0x00,0x95],  		# + 0x19 0x57 for 19:57
     #[cmds.CIV_C_UTC,            4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
-    [cmds.CIV_C_UTC_READ_905,    4,0x1A,0x05,0x01,0x81],     #  Get UTC Offset
+    [cmds.CIV_C_UTC_READ_905,    4,0x1A,0x05,0x01,0x81],      #  Get UTC Offset
     #[cmds.CIV_C_UTC_SEND,       4,0x1A,0x05,0x00,0x96],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
     [cmds.CIV_C_UTC_READ_705,    4,0x1A,0x05,0x01,0x70],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
     [cmds.CIV_C_UTC_READ_9700,   4,0x1A,0x05,0x01,0x84],  		# + 0x01,0x00,0x00 = +1h delta of UTC to MEZ
-    [cmds.CIV_C_DUPLEX_READ,		 1,0x0C],          	    	  # read Duplex Offset  - has 3 bytes frequency offset data
-    [cmds.CIV_C_DUPLEX_SEND,     1,0x0D],	          	    	# send Duplex Offset
+    [cmds.CIV_C_DUPLEX_READ,		 1,0x0C],          	    	    # read Duplex Offset  - has 3 bytes frequency offset data
+    [cmds.CIV_C_DUPLEX_SEND,     1,0x0D],	          	    	  # send Duplex Offset
     [cmds.CIV_C_RIT_XIT,			   2,0x21,0x00],          	    # read or send RIT/XIT Offset  - has 3 bytes frequency offset data  XIT and RIT share this Offset value
     [cmds.CIV_C_RIT_ON_OFF,		   2,0x21,0x01],	          	  # send or send RIT ON or Off status 00 = , 01 = t
     [cmds.CIV_C_XIT_ON_OFF,		   2,0x21,0x02],	          	  # send or send XIT Offset
     [cmds.CIV_C_RADIO_OFF,		   2,0x18,0x00],	          	  # Turn Off the radio
     [cmds.CIV_C_RADIO_ON,		     2,0x18,0x01],	          	  # Turn on the radio
-    [cmds.CIV_C_SCOPE_ON,        3,0x27,0x11,0x01],          # send/read Scope wave data output ON
-    [cmds.CIV_C_SCOPE_OFF,       3,0x27,0x11,0x00],          # send/read Scope wave data output OFF
-    [cmds.CIV_C_SCOPE_ALL,       1,0x27],                    # send/read Scope catch all to avoid no match found error outputs
-    [cmds.CIV_R_NO_GOOD,         1,0xFA],                    # Message received from radio was no good
-    [cmds.CIV_R_GOOD,            1,0xFB]                     # Message received from radio was good
+    [cmds.CIV_C_SCOPE_ON,        3,0x27,0x11,0x01],           # send/read Scope wave data output ON
+    [cmds.CIV_C_SCOPE_OFF,       3,0x27,0x11,0x00],           # send/read Scope wave data output OFF
+    [cmds.CIV_C_SCOPE_ALL,       1,0x27],                     # send/read Scope catch all to avoid no match found error outputs
+    [cmds.CIV_R_NO_GOOD,         1,0xFA],                     # Message received from radio was no good
+    [cmds.CIV_R_GOOD,            1,0xFB],                     # Message received from radio was good
+    [cmds.CIV_R_MAINSUBBAND,     2,0x07,0xD2],                # IC-9700 Main band Active query
+    [cmds.CIV_R_MAIN_BANDVFO,    3,0x07,0xD2,0x00],           # Set/Read IC-9700 Main band VFO selection
+    [cmds.CIV_R_SUB_BANDVFO,     3,0x07,0xD2,0x01]            # Set/Read IC-9700 Sub band VFO selection
 ]
 
 # For CIV commands
