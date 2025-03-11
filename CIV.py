@@ -369,13 +369,14 @@ cmd_List = [
 #define PREAMP_OFF  0       // Bypass
 #define PREAMP_ON   1       // Switch relay on
 
-# clear text translation of the Filter setting
-FilStr = [
-  "NDEF",
-  "FIL1",   # 1 (1 .. 3 is according to ICOM's documentation)
-  "FIL2",
-  "FIL3"
-  ]                
+#
+# Icom mode number, model Label, range of filt choices allowed (1, 2, or 3), and data mode allowed table (set for data capable modes only)
+# per mode, can use filtX and datamode clumns to determine allowable value to write to the radio, or to allow for display.
+# not all filters are avaiable for all odes.  FOr  example DD and WFM are FILT1 only. 
+# To use filt column, test desired or received value against highest value in the field.  
+# For datamode, simple check for 1 or 0. If o hen data mode must be off.  If 1, data mode must be on.  
+# in a table search, that would change the displayed mode label from USB to USB-D for example, they are both the same base mode, 0x01.
+# 
 
 #Modes_List = [
 #    uint8_t     mode_num;
@@ -383,6 +384,32 @@ FilStr = [
 #    uint8_t     filtx;             // bandwidth in HZ - look up matching width in Filter table when changing modes
 #    uint8_t     data;
 
+modeList = [
+    (0x00, "LSB   ", 3, 0),
+    (0x01, "USB   ", 3, 0),
+    (0x02, "AM    ", 3, 0),
+    (0x03, "CW    ", 3, 0),
+    (0x04, "RTTY  ", 3, 0),
+    (0x05, "FM    ", 3, 0),
+    (0x06, "W-FM  ", 1, 0),  # on 705, NA for IC-905
+    (0x07, "CW-R  ", 3, 0),
+    (0x08, "RTTY-R", 3, 0),
+    (0x17, "DV    ", 3, 0),  # hex 17 is 23 dec
+    (0x00, "LSB-D ", 3, 1),
+    (0x01, "USB-D ", 3, 1),
+    (0x02, "AM-D  ", 3, 1),
+    (0x05, "FM-D  ", 3, 1),
+    (0x22, "DD    ", 1, 0),  # hex 22 is 34 dec  // not on 705, on 905
+    (0x23, "ATV   ", 1, 0)   # hex 23 is 35 dec  // not on 705, on 905
+ ]
+
+# clear text translation of the Filter setting
+FilStr = [
+  "NDEF",
+  "FIL1",   # 1 (1 .. 3 is according to ICOM's documentation)
+  "FIL2",
+  "FIL3"
+  ]                
 
 # translation of the radio's general mode
 ModeStr = [
