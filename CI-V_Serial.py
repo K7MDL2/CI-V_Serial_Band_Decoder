@@ -1406,7 +1406,7 @@ def poll_radio(bypass):
     #try:  
     global loop_ctr
     global ser
-    
+
     if loop_ctr == 60 or bypass:
         #ser.write(sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
         time.sleep(0.1)  #give the serial port sometime to receive the data
@@ -1424,11 +1424,11 @@ def poll_radio(bypass):
         ser.write(sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0))
         time.sleep(0.1)  #give the serial port sometime to receive the data
         read_port()
-        
+
         #ser.write(sendCatRequest(cmds.CIV_C_F26A.value, 0, 0))
         #time.sleep(0.1)  #give the serial port sometime to receive the data
         #read_port()
-        
+
         #ser.write(sendCatRequest(cmds.CIV_C_MOD_SEND.value, 0, 0))
         #time.sleep(0.1)  #give the serial port sometime to receive the data
         #read_port()
@@ -1465,7 +1465,7 @@ def poll_radio(bypass):
     ser.write(sendCatRequest(cmds.CIV_C_TX.value, 0, 0))
     time.sleep(0.1)  #give the serial port sometime to receive the data
     read_port()
-        
+
     loop_ctr += 1
     if loop_ctr > 600:
         loop_ctr = 0
@@ -1508,7 +1508,7 @@ def serial_sniffer(args):
             ser.flushInput() #flush input buffer, discarding all its contents
             ser.flushOutput()#flush output buffer, aborting current output 
                              #and discard all that is in buffer
-  
+
             ser.write(sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
@@ -1520,7 +1520,7 @@ def serial_sniffer(args):
             ser.write(sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
-             
+
             ser.write(sendCatRequest(cmds.CIV_C_F26A.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port() 
@@ -1528,19 +1528,19 @@ def serial_sniffer(args):
             ser.write(sendCatRequest(cmds.CIV_C_F25A.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
-            
+
             ser.write(sendCatRequest(cmds.CIV_C_F25B.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
-                  
+
             #ser.write(sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
-            
+
             ser.write(sendCatRequest(cmds.CIV_C_F25A.value, 0, 0))
             time.sleep(0.1)  #give the serial port sometime to receive the data
             read_port()
-            
+
             poll_radio(True) # iniitalize
             poll = RepeatedTimer(1, poll_radio, False)  # call every 1 sec
             print("Polling timer thread enabled:", flush=True)
@@ -1584,7 +1584,7 @@ if __name__ == '__main__':
     print("CI-V Serial Band Decoder - K7MDL Mar 2025")
     tim = dtime.now()
     print("Startup at", tim.strftime("%m/%d/%Y %H:%M:%S%Z"), flush=True)
-    
+
     split_file = os.path.expanduser("~/.Decoder.split")  # saved state for last known split status
     if not os.path.exists(split_file):
         bd.write_split(0)
@@ -1609,9 +1609,9 @@ if __name__ == '__main__':
 
     dht = RepeatedTimer(dht11_poll_time, bd.temps)
     print("DHT11 enabled:", dht11_enable, "  DHT11 Poll time:",dht11_poll_time, flush=True)
-    
+
     ser = serial.Serial()
-    
+
     # Start the main program
     dc = DecoderThread(serial_sniffer(sys.argv))   # option to run main program in a thread
     #serial_sniffer(sys.argv)
