@@ -1,4 +1,3 @@
-
 | Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |    Network Options | ![alt text][POE++] | ![alt text][VLAN] |
 | --- | --- | --- | --- | --- | --- |
 
@@ -22,7 +21,7 @@
 
 This is a Python serial port based CI- V band decoder targeting the IC-705, IC-905, and IC-9700 for now.  The use scenario is nearly identical to the TCP sniffer version at https://github.com/K7MDL2/IC905_Ethernet_Decoder, but does not require tapping into the RF Unit comms.  If you use this with a IC-905 and you are not trying to use a single ethernet cable to reach the remote RF Unit, then there is no need for a POE Inserter or any remote switches and VLANs if there is only the Pi at the end of the cable.
 
-In this case I am using ethernet to reach a remote located cabinet with a Pi CPU inside along with other ethernet gear, same as the ethernet TCP sniffer version, but tp get the CI-V data remotely, I am running 'wfView' remote control program (https://wfview.org/) on the Pi which can share the radio CI-V comms over a virtual serial port. From the outside it should, when completed, look and act the same as the ethernet sniffer unit but use standard CI-V protocol.
+In this case I am using ethernet to reach a remote located cabinet with a Pi CPU inside along with other ethernet gear, same as the ethernet TCP sniffer version, but tp get the CI-V data remotely, I am running 'wfView' remote control program (https://wfview.org/) on the Pi which can share the radio CI-V comms over a virtual serial port. From the outside it looks and acts the same as the ethernet sniffer unit but use standard CI-V protocol and a normal LAN connection to the Pi.
 
 The code is a mashup of my USB CI-V Band Decoder C ported to Python, and the ethernet IC-905 Band Decoder which is in Python.  I could have converted the USB project from USB serial to plain serial fairly quickly but I wanted to do it in Python:
 1. For the fun of it as this is only my 3rd or 4th significant Python project
@@ -35,7 +34,7 @@ I initially looked at adding GPIO code to wfView and spotted a few places in tha
 
 This now has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is being ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  
 
-I am porting over selected CI-V library functions and poll the radio at startup.  They include polled PTT, date, time, UTC offset, location, preamp, attenuator, frequency, and split.  I calculate grid square to 8 places.  GPIO for relays is working.
+I am porting over selected CI-V library functions and poll the radio at startup.  They include polled PTT, date, time, UTC offset, location, preamp, attenuator, frequency, and split.  I calculate grid square to 8 places.  GPIO for relays is working.   If you run this at the same time as TCP905.py, make sure to use separate GPIO pin assignments so they do not conflict.
 
 ### ToDo
 
@@ -44,12 +43,13 @@ To be added:
 2. I have a 7" HDMI touchscreen I may add some graphics UI.
 3. Get dynamic radio config switching working.
 4. Finish mode and filter read. These are only useful for future screen display, not required for basic band decoder
+5. Stretch goal: Direct connect to the radio LAN port and not require wfView in the middle.
    
 
 ### Setup and usage
 
 Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
-https://github.com/K7MDL2/IC905_Ethernet_Decoder
+[https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
 The main app name here is CI-V_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
  This permits parallel operation with the TCP905 version which is how things are in my dev environment.  The 'view_log' tool is now 'view_decoder_log'.
