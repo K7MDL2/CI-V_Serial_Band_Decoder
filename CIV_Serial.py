@@ -1,5 +1,16 @@
 #!/usr/bin/python
 
+#------------------------------------------------------------------
+#
+#  CI-V Serial Band Decoder for Raspberry Pi.  
+#  Used with wfView virual sewrial port to act as a LAN to Serial bridge
+#    permititng remote install of the Pi and its relays.
+#
+#   March 2025 K7MDL
+
+#
+#------------------------------------------------------------------
+
 import serial, time
 import os
 import sys
@@ -35,7 +46,7 @@ START_BYTE = 0xfe  # Start byte
 STOP_BYTE = 0xfd   # Stop byte
 CMD_READ_FREQ = 0x03    # Read operating frequency data
 radio_address_received = 0
-radio_address = 0
+radio_address = 0xAC
 init_done = 0
 ALL_RADIOS = 0
 IC705 = 0xa4
@@ -292,6 +303,7 @@ class BandDecoder(OutputHandler):
 
 
     def read_band(self, key_value_pairs):
+        global Freq_table
         # Initialize the band and VFOs to the last saved values, lost likely will be correct.
         # Alternative is to do nothng and block PTT
         #__band_num = key_value_pairs['RADIO_BAND']
@@ -317,23 +329,26 @@ class BandDecoder(OutputHandler):
             rm = IC905
         if rmkey == 'IC9700':
             rm = IC9700
-        if radio_model == 0:
-            radio_model = rm
+        if radio_model == "":
+            radio_model = IC705
         print("Radio Model Key =", rmkey)   
         #print("Before: radio model:%X  radio address:%X" % (radio_model, radio_address))
         
         # Set to new model and data tables
-        if (radio_model == IC705 and radio_address == 0) or radio_address == IC705:
+        if radio_address_received == IC705:
+        #if (radio_model == IC705 and radio_address != IC705) or radio_address == IC705:
             Freq_table = copy.deepcopy(Freq_table_705)
             print("Frequencies loaded for Radio Model 705 at address 0x%X" % (radio_address))
             radio_model = IC705
     
-        if (radio_model == IC905 and radio_address == 0) or radio_address == IC905:
+        if radio_address_received == IC905:
+        #if (radio_model == IC905 and radio_address != IC905) or radio_address == IC905:
             Freq_table = copy.deepcopy(Freq_table_905)
             print("Frequencies loaded for Radio Model 905 at address 0x%X" % (radio_address))
             radio_model = IC905
 
-        if (radio_model == IC9700 and radio_address == 0) or radio_address == IC9700:
+        if radio_address_received == IC9700:
+        #if (radio_model == IC9700 and radio_address != IC9700) or radio_address == IC9700:
             Freq_table = copy.deepcopy(Freq_table_905)
             print("Frequencies loaded for Radio Model 9700 at address 0x%X" % (radio_address))
             radio_model = IC9700
@@ -1031,8 +1046,8 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                         # Call PTT output here rather than in teh main loop to avoid any loop delay time.
                         
         case cmds.CIV_C_TRX_ID.value:
-            radio_address_received = radio_address = rd_buffer[data_start_idx]
-            print("CIV_Action: CI-V address: 0x%X" % (radio_address))
+            radio_model = radio_address_received = radio_address = rd_buffer[data_start_idx]
+            print("CI-V address: 0x%X" % (radio_address))
 
         case cmds.CIV_C_SPLIT_READ.value:
             bd.split_status = rd_buffer[data_start_idx]
@@ -1207,7 +1222,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
             # Here I directly converted to what Convert_to_MH wants
             #print("Lat Long", Latitude, Longitude)
             Convert_to_MH();
-            print("CIV_Action: GPS Converted: Lat = %s  Long = %s  Grid Square is %s" % (Latitude, Longitude, Grid_Square), flush=True)
+            print("GPS Lat = %s  Long = %s  Grid Square is %s" % (Latitude, Longitude, Grid_Square), flush=True)
             #//ESP_LOGI(TAG, "CIV_Action: ** Time from Radio is: ");
 
             _hr = _min = _sec = _month = _day = _yr = 1
@@ -1286,21 +1301,37 @@ def Get_Radio_address(read_buffer):
     global radio_address
     global radio_model
     
+    print("Get Address", radio_address, radio_address_received, radio_model)
     # filter incorrect contents best we can
-    if (radio_address == 0x00 or radio_address == 0xff or radio_address == 0xe0) and (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE)):
-        if (radio_address_received == 0 or radio_address_received == 0xe0):
-                print("Get_Radio_address: Radio not found - retry count = ", retry_Count)
-                retry_Count += 1
-        else:
-                radio_address = radio_address_received
-                print("Get_Radio_address: Radio found at 0x%X" % (radio_address), flush=True)
-                retry_Count = 0
-                
+    if (1):
+    #if (radio_address == 0x00 or radio_address == 0xff or radio_address == 0xe0) and (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE)):
+        #if (radio_address_received == 0 or radio_address_received == 0xe0):
+        if (1):
+        #if radio_model != radio_address_received:
+        #        print("Get_Radio_address: Radio not found - retry count = ", retry_Count)
+        #        retry_Count += 1
+        #else:
+        #        radio_address = radio_address_received
+        #        print("Get_Radio_address: Radio found at 0x%X" % (radio_address), flush=True)
+        #        retry_Count = 0
+            t_address = radio_address
+            radio_address = IC705
+            sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+
+            radio_address = IC905
+            sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+            
+            radio_address = IC9700
+            sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+            
+            
+        
+        
                 # radio_model initially comes from the config file.and is used until there is a valid address
                 # or one comes from a different model.  You could have more than 1 address for a model.
-                if radio_model != radio_address:    
-                    print("Radio Model 0x%X and Radio Address 0x%X do not match, reload Data Tables, reconfigure for 0x%X" % (radio_model, radio_address, radio_address), flush=True)
-                    bd.init_band(key_value_pairs, True)
+                #if radio_model != radio_address:    
+            print("Radio Address Received 0x%X and Current Radio Address 0x%X do not match, reload Data Tables, reconfigure for 0x%X" % (radio_address_received, radio_address, radio_address_received), flush=True)
+            bd.init_band(key_value_pairs, True)
 
 
 def remove():
@@ -1349,12 +1380,18 @@ def processCatMessages():
             #    print(read_buffer[k])
             #print("msg_len = %d END\n", msg_len)
 
-            if (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE)):
-                radio_address_received = read_buffer[3]
+            if (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE) and read_buffer[3] != CONTROLLER_ADDRESS):
+                #radio_address_received = read_buffer[3]
                 #print("radio_address_received = ", radio_address_received)
-                if (radio_address_received != 0 and radio_address == 0):
-                    Get_Radio_address(read_buffer)
-                if (read_buffer[3] != CONTROLLER_ADDRESS):
+                #if (radio_address_received != radio_address):
+                #if (radio_address_received != 0 and radio_address == 0):
+                #hex_array = [hex(num) for num in read_buffer][0:msg_len]
+                #print("processCatMessages %s  length: %d" % (hex_array, data_len))
+                if (1):
+                #if (read_buffer[3] != CONTROLLER_ADDRESS):
+                    radio_address_received = read_buffer[3]
+                    if (radio_address_received != radio_address and radio_model != radio_address_received):
+                        Get_Radio_address(read_buffer)
                     #hex_array = [hex(num) for num in read_buffer][0:msg_len]
                     #print("processCatMessages %s  length: %d" % (hex_array, data_len))
                     #if (read_buffer[2] != CONTROLLER_ADDRESS or read_buffer[2] == BROADCAST_ADDRESS):
@@ -1526,9 +1563,10 @@ def serial_init():
                 time.sleep(5) 
                 init_done = False
 
-        except Exception as e:
-            print("serial_init: Serial Expection", e)
-            os.unlink(s_path)
+        except SerialException as e:
+            print("serial_init: Serial Exception", e)
+            if os.path.islink(s_path):
+                os.unlink(s_path)
             init_done = False
             time.sleep(5) 
 
@@ -1543,6 +1581,7 @@ def serial_sniffer(args):
     global poll
     global init_done
     active_band_last = 0
+    global radio_address
 
     if init_done:
         print("Starting Program")
@@ -1551,7 +1590,16 @@ def serial_sniffer(args):
                 time.sleep(5)
                 print("Waiting for serial port to open")
             if ser.isOpen():
-                sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                if radio_model != radio_address:
+                    radio_address = IC705
+                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                if radio_model != radio_address:
+                    radio_address = IC905
+                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                if radio_model != radio_address:
+                    radio_address = IC9700
+                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                
                 sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0)
@@ -1574,11 +1622,9 @@ def serial_sniffer(args):
                 while (1):
                     io.PTT_In()
                     read_port()
-                    #time.sleep(0.2)
                     if (active_band != active_band_last):
                         sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # selected VFO freq
                         active_band_last = active_band
-                        #break
             else:
                 print("Serial Port is not open")
                 init_done = False
@@ -1601,7 +1647,7 @@ def serial_sniffer(args):
 if __name__ == '__main__':
     io = OutputHandler()  # instantiate our classes
     bd = BandDecoder()
-    #Freq_table = Freq_table_705
+    Freq_table = Freq_table_705
 
     print("CI-V Serial Band Decoder - K7MDL Mar 2025")
     tim = dtime.now()
