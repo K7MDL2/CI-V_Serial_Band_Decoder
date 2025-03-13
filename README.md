@@ -1,11 +1,17 @@
-| Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |    Network Options | ![alt text][POE++] | ![alt text][VLAN] |
-| --- | --- | --- | --- | --- | --- |
+| Pi CPUs | ![alt text][Pi5B] | ![alt text][Pi4B] |    
+| --- | --- | --- |
+
+| Network Options | ![alt text][POE++] | ![alt text][VLAN] |
+| --- | --- | --- |
 
 | Radios supported | ![alt text][IC-905] | ![alt text][IC-705] | ![alt text][IC-9700] |
 | --- | --- | --- | --- |
 
-| Python versions tested | ![alt text][Python311] | ![alt text][Python312] | 
+| Python versions tested | ![alt text][Python311] | ![alt text][Python312] |
 | --- | --- | --- |
+
+| wfView | ![alt text][wfView] |
+| --- | --- |
 
 [Pi5B]: https://img.shields.io/badge/-Pi%205B-purple "Pi 5B"
 [Pi4B]: https://img.shields.io/badge/-Pi%204B-green "Pi 4B"
@@ -17,7 +23,18 @@
 [Python312]: https://img.shields.io/badge/-Python%203.12-red "Python312"
 [POE++]: https://img.shields.io/badge/-POE++-yellow "POE++"
 [VLAN]: https://img.shields.io/badge/-VLAN-blue "VLAN"
+[wfView]: https://img.shields.io/badge/-wfView%202.04-purple "wfView"
 
+### Update Mar 13, 2025
+1. I changed the name of the main file from CI-V_Serial.py to CIV_Serial.py. The install script and service files are updated to match.  You will want to delete /usr/local/bin/CI-V_Serial.py.  This is to make some things cleaner, code does not like hyphens in variables.
+2. GPIO PTT input is now working.  The config file has 2 new settings, one for GPIO input pin number and WIRED_PTT to select WIRED or POLL mode. Polled mode is rather slow since all polling is in 1 second minimum resolution timer thread. Some commands are sent less frequently.  Most are held off during PTT.
+3. At startup the radio model (aka CIV address) is read from the config file to load a preferred default Frequency table.  When connected to a radio, the actual CIV address is detected and if it matches the current model, it moves on.  If the model and address are different, it now dynamically reloads the frequency table.  The model and address are posted to the screen and you will notice of the update to the table in use.  LOng tern it wil be easier to allow at least 1 alternate address in case there are 2 of the same model radios in use connected to a logger.  wfView uses controller address 0xE1.  I am using 0xE0.
+4. The IC-9700, IC-705 and IC-905 are tested.  I only have the borrowed 9700 for a short time longer so most of the testing is on that for now.  I am still working on getting the support for the 2nd receiver and cross band split working correctly.  It was working then I did major rework to the serial port code to improve error handling and attempt recovery.
+5. Cross band split on all radios is mostly working. The delay between the band change and PTT is missing.  Also have to work out duplex vs split.
+6. Serial port connection recovery is a work in progress.
+7. I am using wfView 2.04 March 10 weekly build.  I used the full build script. See bottom of page.  I have run across some bugs which I have reported. There are some strange things that happen like wfView will freeze the spectrum on startup, sometimes get grey window but the serial still works, it will crash on disconnect which leaves a virtual serial port link stale adn prevent a clean start.  I try to delete the stale link when I detect a closed port error.  You must restart one or both programs to fix this for now.  How much of this is related to my usage of the serial port is TBD.  Some of it happens with nothing connected to the serial port.
+
+### CI-V Serial Band Decoder Program
 
 This is a Python serial port based CI- V band decoder targeting the IC-705, IC-905, and IC-9700 for now.  The use scenario is nearly identical to the TCP sniffer version at https://github.com/K7MDL2/IC905_Ethernet_Decoder, but does not require tapping into the RF Unit comms.  If you use this with a IC-905 and you are not trying to use a single ethernet cable to reach the remote RF Unit, then there is no need for a POE Inserter or any remote switches and VLANs if there is only the Pi at the end of the cable.
 
@@ -40,14 +57,15 @@ I am porting over selected CI-V library functions and poll the radio at startup.
 ### ToDo
 
 To be added: 
-1. Add GPIO PTT input monitoring for wired PTT and hook it and the polled PTT into the existing PTT function.  Currently polling every 1 sec for CI-V PTT status
-2. I have a 7" HDMI touchscreen I may add some graphics UI.
-3. Get dynamic radio config switching working.
-5. Stretch goal: Direct connect to the radio LAN port and not require wfView in the middle.
-   
+1. I have a 7" HDMI touchscreen I may add some graphics UI.
+2. Stretch goal: Direct connect to the radio LAN port and not require wfView in the middle.
+3. Fix cross band split and make the IC-9700 sub RX cross band work right.  
 
 ### Setup and usage
 
+wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.
+   
+    https://www.wfview.org
 Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
 [https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
@@ -56,22 +74,33 @@ The main app name here is CI-V_Serial.py and has the same install script, logs, 
 
 I support multiple radios.  I auto-detect the CI-V address and dynamically change the frequency table and IO pin table reloading the necessary variables to switch between the 905 (and 9700 which is the same) and the 705, hopefully other radios later.  
 
-I have a config file entry inside the file ~/Decoder.config that will be overrriden by the detected CI-V address.  In the future I am thinking of using these entries to override the address to account for non-stanbard CI-V addresses or multiple radio configs in a single file. They could have different IO pin assignments.
+I have a config file entry inside the file ~/Decoder.config that will be overrriden by the detected CI-V address.  In the future I am thinking of using these entries to override the address to account for non-standard CI-V addresses or multiple radio configs in a single file. They could have different IO pin assignments. For now it is used to specifiy the initial frequency table loaded before a CI-V address is detected.
 
     # --------------------------------
     # 
     # Enter the model radio to get the right band assignments
-    # Choices are IC705, IC905
-    # For the IC-9700 choose IC905.  Uncomment the desired selection
+    # Choices are IC705, IC905, or IC9700
     #
     # --------------------------------
 
-    #RADIO_MODEL=IC905
-    RADIO_MODEL=IC705
+    RADIO_MODEL=IC9700
 
 Not setting the right model results in the wrong band frequency limits and band labels applied and GPIO won't be correct.   If you change this you must restart the program.  If it is running as a systemd service then use the stop/start utilities.
 
-### Visual Studio Coe and Coder Server setup
+Here are the new PTT input pin and mode additions
+
+    # To use a wired GPIO input set this = 1, else set to 0 for Polled PTT status
+    WIRED_PTT=1
+
+    # ---------------------------------
+    # This is the pin assigned to monitor a wired PTT input from the radio
+    # ---------------------------------
+
+    GPIO_PTT_IN_PIN=16
+    GPIO_PTT_IN_PIN_INVERT=True
+
+
+### Visual Studio Code and Code Server setup
 
 I have been using VS Code for Arduino, ESP-IDF, and Python for years now.  It has integrated GitHub source control support and runs on multiple platforms and is far more productive than the Arduino IDE.  The ESP-IDF runs as an extension in VS Code.  Running the UI on a Pi4 was a bit tedious so I edited mostly on the PC.  
 
