@@ -1,4 +1,6 @@
 # file: CIV.py
+#  For use with CIV_Serial.py
+#  K7MDL March 2025
 
 from enum import Enum, auto
 

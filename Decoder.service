@@ -8,7 +8,7 @@ Alias=Decoder.service
 
 [Service]
 Type=idle
-ExecStart=/usr/bin/python3 /usr/local/bin/CI-V_Serial.py
+ExecStart=/usr/bin/python3 /usr/local/bin/CIV_Serial.py
 StandardOutput=append:Decoder.log
 StandardError=file:Decoder.err 
 Restart=always
