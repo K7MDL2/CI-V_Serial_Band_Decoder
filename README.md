@@ -54,7 +54,9 @@ Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very sim
 The main app name here is CI-V_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
  This permits parallel operation with the TCP905 version which is how things are in my dev environment.  The 'view_log' tool is now 'view_decoder_log'.
 
-One significant change in this version is multiple radio support.  While I auto-detect the CI-V address, I currently have no working means to dynamically change the frequency table and reload the necessary variables to switch between the 905 (and 9700 which is the same) and the 705 and later other radios.  For now I have a new config file entry inside the file ~/Decoder.config
+I support multiple radios.  I auto-detect the CI-V address and dynamically change the frequency table and IO pin table reloading the necessary variables to switch between the 905 (and 9700 which is the same) and the 705, hopefully other radios later.  
+
+I have a config file entry inside the file ~/Decoder.config that will be overrriden by the detected CI-V address.  In the future I am thinking of using these entries to override the address to account for non-stanbard CI-V addresses or multiple radio configs in a single file. They could have different IO pin assignments.
 
     # --------------------------------
     # 
@@ -68,3 +70,14 @@ One significant change in this version is multiple radio support.  While I auto-
     RADIO_MODEL=IC705
 
 Not setting the right model results in the wrong band frequency limits and band labels applied and GPIO won't be correct.   If you change this you must restart the program.  If it is running as a systemd service then use the stop/start utilities.
+
+### Visual Studio Coe and Coder Server setup
+
+I have been using VS Code for Arduino, ESP-IDF, and Python for years now.  It has integrated GitHub source control support and runs on multiple platforms and is far more productive than the Arduino IDE.  The ESP-IDF runs as an extension in VS Code.  Running the UI on a Pi4 was a bit tedious so I edited mostly on the PC.  
+
+With the much faster Pi5 here and this project, I have started using Code-Server running on the Pi5.  It allows you to run the VS Code UI use a browser on the local or any remote machine with all the same features including an integrated terminal and for Python a debugger.  I highly recommend it. For Python in particular setup is very simple.  See these links below.  I have used both the manual and the script installs, both are easy and work.  The current version is 4.98.0.
+
+    https://github.com/coder/code-server
+    https://coder.com/docs/code-server/install
+
+Another useful too is FilelZilla which provides a file explorer type view between the local and one or more remote machines.
