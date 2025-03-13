@@ -34,10 +34,6 @@
 6. Serial port connection recovery is a work in progress.
 7. I am using wfView 2.04 March 10 weekly build.  I used the full build script. See bottom of page.  I have run across some bugs which I have reported. There are some strange things that happen like wfView will freeze teh spectrum on startup, sometimes get grey window but the serial still works, it will crash on disconnect which leaves a virtual serial port link stale adn prevent a clean start.  I try to delete the stale link when I detect a closed port error.  You must restart one or both programs to fix this for now.
 
-Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.
-   
-    https://www.wfview.org
-
 ### CI-V Serial Band Decoder Program
 
 This is a Python serial port based CI- V band decoder targeting the IC-705, IC-905, and IC-9700 for now.  The use scenario is nearly identical to the TCP sniffer version at https://github.com/K7MDL2/IC905_Ethernet_Decoder, but does not require tapping into the RF Unit comms.  If you use this with a IC-905 and you are not trying to use a single ethernet cable to reach the remote RF Unit, then there is no need for a POE Inserter or any remote switches and VLANs if there is only the Pi at the end of the cable.
@@ -67,6 +63,9 @@ To be added:
 
 ### Setup and usage
 
+wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.
+   
+    https://www.wfview.org
 Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
 [https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
