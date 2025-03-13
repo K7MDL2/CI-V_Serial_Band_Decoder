@@ -61,6 +61,14 @@ To be added:
 2. Stretch goal: Direct connect to the radio LAN port and not require wfView in the middle.
 3. Fix cross band split and make the IC-9700 sub RX cross band work right.  
 
+### Networking Options
+
+The TCP905 version decoder requires a tap into the dedicated controller to RF Unit ethernet data.  The RF unit is set up on a managed switch(es) in a VLAN and port mirroring is enabled on that VLAN so we can monitor the data.  The data exchanged is not CI-V and is unpublished.  Since there is direct access tothe ethenet, CPU usage is very low. ATV mode however exceeds a Pi3 100MB ethernet capacity.
+
+This decoder uses standard CI-V commands using wfView as a ethernet to serial bridge. This lets you use the LAN/WiFi side ethernet connection uses standard CI-V protocols. It requires no VLAN or port mirror so standrd unmanged switches work.  Putting wfview on the same CPU as the Decodewr app and using virtual serial to connect them lets you place the CPU anywhere your ethernet network can reach.  Even WiFi might work.  Someday I hope to directly access the radio via the LAN with no bridging software required, but for now the serial is the easy way to do this. Also a direct connecxtion woudsl let a smaller CPU like a Pi 3 to work.
+
+Bottom line, if you already have, or can run an ethernet cable out to where you want your band decoder relays, you plug in a Pi4 or Pi5 with some relay or other suitable IO into the network and control your gear. The IO mapping can be customised per band.  I have not tested this on the Pi4 yet.  I doubt it will work on a Pi3. The Pi5 is running about 60% CPU and GPU at 24% with the wfView spectrum on or off.  A Pi4 will be pressed.
+
 ### Setup and usage
 
 wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.
