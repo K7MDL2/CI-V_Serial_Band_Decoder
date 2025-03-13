@@ -71,9 +71,8 @@ Bottom line, if you already have, or can run an ethernet cable out to where you 
 
 ### Setup and usage
 
-wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.
+wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.  See the wfView section for installing wfView.
    
-    https://www.wfview.org
 Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
 [https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
@@ -110,6 +109,24 @@ Here are the new PTT input pin and mode additions
 Be sure to edit the band and pin number for your external IO hardware.  In my test setup I have a 3 relay HAT module.  I am using 1 relay for PTT and the other 2 as indication to me that the band IO is working.  There is only 2 relays so I just set them up to change as I sequentially go through the bands.  Since there are only 2 relays for band, there can be 4 states - all on, #1 on, #2 on, all off. Since there are 6 bands, 2 of them will have to use the same pattern as 2 other bands.   More relays of course is better.  
 
 Realize that the IO procress looks through the list pins and applies the pattern one at a time. If you only have 1 relay, say for PTT, then the PTT pattern will be b'000001' or 0x01.  The lowest pin in the map (ptt band 0 here) will be set first followed by the others. If all 6 ptt pins are set to the same pin IO number then the pin will be set at first then unset for the remaining 5 bit positions.  To make this work, assign the band 0 ptt io pin to your relay pin number, then assign the rest of the ptt pins 1-5 to some other unused pin.
+
+### wfView setup
+
+I am using wfView 2.04 March 10 weekly build (or later).  I used the full build script. The wfView home page is here:
+
+    https://www.wfview.org
+
+There are standard releases on the download page.  Scroll down the page you will see info for weekly builds and install instructions.  I am using weekly builds found here:
+
+    https://wfview.org/download/
+    https://www.wfview.org/public_builds/
+
+I normally choose the latest version.  If it has problems it is easy enough to use an earlier verison.  I have last years 1.65 loaded also for testing on occasion.  It has minimal support for the IC-905 so I use 2.X builds.  Further down on the Download page are install instructions.  For the Pi I use the fullbuild-wfview.sh script.  You download the script, make it executable (chmod + x filename), then run it.
+
+    https://gitlab.com/eliggett/scripts/-/blob/master/fullbuild-wfview.sh
+
+After the install script is done there will be a desktop icon. You can also use command line.  Once started, open Settings->Radio Access and enter your radio IP address and login info.  Once you have a good connection to your radio, go to Settings->External Control and choose 'rig-pty1' for the virtual serial port.   You can use wfView as normal now and the band deocder will do its thing.
+
 
 ### Visual Studio Code and Code Server setup
 
