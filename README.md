@@ -62,7 +62,6 @@ I am porting over selected CI-V library functions and poll the radio at startup.
 To be added: 
 1. I have a 7" HDMI touchscreen I may add some graphics UI.
 2. Stretch goal: Direct connect to the radio LAN port and not require wfView in the middle.
-3. Fix cross band split and make the IC-9700 sub RX cross band work right.  
 
 ### Networking Options
 
@@ -121,7 +120,7 @@ Here are the new PTT input pin and mode additions
 
 Be sure to edit the band and pin number for your external IO hardware.  In my test setup I have a 3 relay HAT module.  I am using 1 relay for PTT and the other 2 as indication to me that the band IO is working.  There is only 2 relays so I just set them up to change as I sequentially go through the bands.  Since there are only 2 relays for band, there can be 4 states - all on, #1 on, #2 on, all off. Since there are 6 bands, 2 of them will have to use the same pattern as 2 other bands.   More relays of course is better.  
 
-Realize that the IO procress looks through the list pins and applies the pattern one at a time. If you only have 1 relay, say for PTT, then the PTT pattern will be b'000001' or 0x01.  The lowest pin in the map (ptt band 0 here) will be set first followed by the others. If all 6 ptt pins are set to the same pin IO number then the pin will be set at first then unset for the remaining 5 bit positions.  To make this work, assign the band 0 ptt io pin to your relay pin number, then assign the rest of the ptt pins 1-5 to some other unused pin.
+Realize that the IO procress looks through the list of pins and applies the pattern one pin at a time. If you only have 1 relay, say for PTT, then the PTT pattern will be b'000001' or 0x01.  The lowest pin in the map (ptt band 0 here) will be set first followed by the others. If all 6 ptt pins are set to the same pin IO number then the pin will be set at first then unset for the remaining 5 bit positions.  To make this work, assign the band 0 ptt io pin to your relay pin number, then assign the rest of the ptt pins 1-5 to some other unused pin.
 
 ### wfView setup
 
