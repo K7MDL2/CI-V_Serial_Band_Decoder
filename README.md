@@ -25,6 +25,9 @@
 [VLAN]: https://img.shields.io/badge/-VLAN-blue "VLAN"
 [wfView]: https://img.shields.io/badge/-wfView%202.04-purple "wfView"
 
+### Update Mar 15, 2025 
+1. Completed support for the IC-9700.  It now handles the Sub RX in 2 ways.  The Sub RX band frequency can be displayed but ignored for BAND and PTT output purposes, always using the MAIN band for relay control.  Or it can operate as normal cross-band split, switching the BAND and PTT outputs between the 2 bands.  See the setup info below for MAIN_TX (IC-9700 only).
+
 ### Update Mar 13, 2025
 1. I changed the name of the main file from CI-V_Serial.py to CIV_Serial.py. The install script and service files are updated to match.  You will want to delete /usr/local/bin/CI-V_Serial.py.  This is to make some things cleaner, code does not like hyphens in variables.
 2. GPIO PTT input is now working.  The config file has 2 new settings, one for GPIO input pin number and WIRED_PTT to select WIRED or POLL mode. Polled mode is rather slow since all polling is in 1 second minimum resolution timer thread. Some commands are sent less frequently.  Most are held off during PTT.
