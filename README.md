@@ -142,6 +142,8 @@ I normally choose the latest version.  If it has problems it is easy enough to u
 
 After the install script is done there will be a desktop icon. You can also use command line.  Once started, open Settings->Radio Access and enter your radio IP address and login info.  Once you have a good connection to your radio, go to Settings->External Control and choose 'rig-pty1' for the virtual serial port.   You can use wfView as normal now and the band deocder will do its thing.
 
+To reduce CPU usage, once I have the settings confirmed working and saved,  I can run "wfview -platform vnc" on the command line to run without the usual graphics and on a Pi5 it reduces CPU around half to 30%.  Be sure to stop and start the Decoder service each time you stop/start wfView (for now).
+
 
 ### Visual Studio Code and Code Server setup
 
