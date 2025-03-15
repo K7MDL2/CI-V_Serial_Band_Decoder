@@ -11,9 +11,7 @@
 #
 #------------------------------------------------------------------
 
-import serial, time
-import os
-import sys
+import serial, time, os, sys, traceback, copy, math
 import numpy as np
 from RPi import GPIO
 import subprocess as sub
@@ -21,12 +19,11 @@ from threading import Timer
 from typing import Callable
 from datetime import datetime as dtime
 from enum import Enum, auto
-import copy
 from CIV import *
-import math
 from serial import SerialException
 
 # These are usually not changed
+main_TX = True  #  IC-9700 only - always use the main band for determining relay outputs - False will switch the band relays to the Sub band
 use_wired_PTT = 0  # 0 = poll for TX status, 1 use GPIO input
 #  if dht is enabled, and connection is lost, ther program will try to recover the connection during idle periods
 dht11_enable = True  # enables the sensor and display of temp and humidity
@@ -251,11 +248,19 @@ class BandDecoder(OutputHandler):
 # We are inheriting from OutputHandler class so we can access its functions
 #   and variables as if they were our own.
     bandname = ""
+    
+    # main band vfos
     vfoa_band = ""
-    vfoa_band_split_Tx = ""
     vfob_band = ""
     selected_vfo = 0
     unselected_vfo = 255
+    CIV_selected_vfo = 0
+    CIV_unselected_vfo = 0
+    
+    # sub band vfos
+    selected_vfo_rx = 0
+    CIV_selected_vfo_rx = 0
+    vfoa_band_split_Tx = ""    
     selected_vfo_split_Tx = 0
     split_status = 255
     preamp_status = 255
@@ -268,6 +273,7 @@ class BandDecoder(OutputHandler):
     payload_ID_byte = 0
     payload_Attrib_byte = 0
     frequency_init = 0
+    TX_Delay = False
     global datamode
     global filt
     global mode_idx
@@ -277,6 +283,7 @@ class BandDecoder(OutputHandler):
         self.__freq_lastA = 0
         self.__freq_lastB = 0
         self.__vfoa_band_last = 255
+        self.__vfob_band_last = 255
         self.__ptt_state_last = 255
         self.PTT_hang_time = 0.2
         self.__split_status_last = 255
@@ -417,6 +424,7 @@ class BandDecoder(OutputHandler):
         global gpio_ptt_in_pin_invert
         global use_wired_PTT
         global IO_table
+        global main_TX
         
         IO_table[0x01]['ptt_pin'] = gpio_ptt_0_pin = int(key_value_pairs['GPIO_PTT_0_PIN'])
         IO_table[0x01]['ptt_invert'] = gpio_ptt_0_pin_invert = self.str_to_bool(key_value_pairs['GPIO_PTT_0_PIN_INVERT'])
@@ -448,6 +456,10 @@ class BandDecoder(OutputHandler):
         
         use_wired_PTT = int(key_value_pairs['WIRED_PTT'])
         print("Wired PTT Mode =",use_wired_PTT)
+        
+        main_TX = int(key_value_pairs['MAIN_TX'])
+        print("Use Main Band only for TX on IC-9700 =", main_TX)
+        
 
 
     # reload paramters after detection of different radio address.  Skip DHT, radio model
@@ -461,7 +473,7 @@ class BandDecoder(OutputHandler):
             self.read_band_pins(key_value_pairs)
             self.read_ptt_pins(key_value_pairs)
             io.gpio_config()
-            self.vfoa_band = self.frequency(self.selected_vfo, self.unselected_vfo)  # 0 is vfoa
+            self.vfoa_band = self.frequency(self.selected_vfo, self.unselected_vfo, self.selected_vfo_rx)  # 0 is vfoa
             self.ptt(PTT)
         
 
@@ -659,16 +671,26 @@ class BandDecoder(OutputHandler):
         return freq
 
 
-    def frequency(self, freqA, freqB):  # 0xd8 0x00 is normal tuning update, 0x18 on band changes
+    def frequency(self, freqA, freqB, freqA_Sub):  
+        # 0xd8 0x00 is normal tuning update, 0x18 on band changes
         # Duplex used split status byte for VFO swap, just has vfoB set different with offset
         # split is updated in message ID 0xD4.  Here we can also pick it up and not wait for 
         # someone to press the split button to generate the d4 event.
         # Returns the payload hex converted to int.
         # This need to have the band offset applied next
-        __vfoa = freqA
-        #print("(Freq) VFO A = ", __vfoa)
+        
+        if PTT or self.TX_Delay:
+            return
+        
         __vfob = freqB
-         #print("(Freq) VFO B = ", __vfob)
+        #print("(Freq) VFOA Main:", freqA, " VFOB Main:", freqB, " VFOA Sub:", freqA_Sub)
+        if active_band:
+            __vfoa = freqA_Sub
+            __vfob = freqA
+        else:
+            __vfoa = freqA
+            __vfoB = freqB
+        #print("(Freq) VFOA = ", __vfoa, " VFOB = ", __vfob)
         
         if (radio_model == IC905 and (self.vfoa_band == 3 or self.vfoa_band == 4 or self.vfoa_band == 5)):
             self.atten_status = 0
@@ -677,9 +699,9 @@ class BandDecoder(OutputHandler):
         if radio_model == IC9700 and self.vfoa_band > '2':
             self.vfoa_band = 2  #  Only 3 bands valid for 9700 out of 6 in the table.
 
-        if (self.split_status != self.__split_status_last):
-            self.write_split(self.split_status)
-            self.__split_status_last = self.split_status
+        #if (self.split_status != self.__split_status_last):
+        #    self.write_split(self.split_status)
+        #    self.__split_status_last = self.split_status
         
         # Look for band changes
         if (__vfoa != self.__freq_lastA or __vfob != self.__freq_lastB):
@@ -701,6 +723,7 @@ class BandDecoder(OutputHandler):
                     self.vfob_band = __band_num
                     
             self.p_status("FREQ ") # print out our state
+            
             #print("  Lower edge = ", Freq_table[self.vfoa_band]['lower_edge'] + self.__offset,
             #      "  Upper edge = ", Freq_table[self.vfoa_band]['upper_edge'] + self.__offset,
             #      "  Offset = ", self.__offset,
@@ -708,9 +731,12 @@ class BandDecoder(OutputHandler):
 
             #  set band outputs on band changes
             if (self.vfoa_band != self.__vfoa_band_last):
-                io.band_io_output(self.vfoa_band)
+                if (radio_model == IC9700 and main_TX):
+                    io.band_io_output(self.vfob_band)
+                else:
+                    io.band_io_output(self.vfoa_band)
                 self.__vfoa_band_last = self.vfoa_band
-                self.write_band(self.vfoa_band)  # update the status file on change
+                #self.write_band(self.vfoa_band)  # update the status file on change
                 #self.bandname = Freq_table[self.vfoa_band]['bandname']
             self.__freq_lastA = __vfoa
             self.__freq_lastB = __vfob
@@ -727,54 +753,71 @@ class BandDecoder(OutputHandler):
         if (self.vfoa_band != ""):   # block PTT until we know what band we are on
             #print("PTT called")    
             self.ptt_state = PTT
-            #self.__ptt_state_last = 255
-
             if (self.ptt_state != self.__ptt_state_last):
                 #print("PTT state =", self.ptt_state)
                 if (self.ptt_state == 1):  # do not TX if the band is still unknown (such as at startup)
-                    #print("PTT TX VFO A Band = ", self.bandname, "VFO B Band = ", self.vfob_band, "  ptt_state is TX ", self.ptt_state, " Msg ID ", hex(self.payload_copy[0x0001]))
-                    if (self.split_status != 0 and (active_band == 1 and radio_model == IC9700)): # swap selected and unselected when split is on during TX
-                        self.vfoa_band_split_Tx = self.vfoa_band  # back up the original VFOa band
-                        self.selected_vfo_split_Tx = self.selected_vfo  # back up original VFOa
-                        self.selected_vfo = self.unselected_vfo  # during TX assign b to a
-                        self.vfoa_band = self.vfob_band
-                        print("PTT TX1 VFO A Band = ", self.bandname, "VFO B Band = ", self.vfob_band,  " ptt_state is TX ", self.ptt_state)
-
+                    #print("PTT-TX VFOA Band:", self.vfoa_band, self.selected_vfo, "VFO B Band:", self.vfob_band, self.unselected_vfo, "SPLIT:", self.split_status, "SUB:", active_band, "ptt_state is TX ")
+                    #  Split and Duplex for IC9700 is complicated by the sub RX and whether to switch IO band or not on TX
+                    if (radio_model != IC9700 and self.split_status != 0) or \
+                        (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): #and not main_TX): # swap selected and unselected when split is on during TX
+                        if radio_model == IC9700:
+                            self.vfoa_band_split_Tx = self.vfoa_band  # back up the original VFOa band
+                            self.selected_vfo_split_Tx = self.selected_vfo  # back up original VFOa  
+                            self.__vfob_band_last = self.vfob_band
+                            self.selected_vfo = self.unselected_vfo
+                            self.vfoa_band = self.vfob_band
+                            self.bandname = Freq_table[self.vfoa_band]['bandname']                         
+                        #print("PTT-TX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, "VFOB Band:", self.vfob_band, "VFOA BAND SPLIT TX:", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX:", self.selected_vfo_split_Tx)
                         # skip the band switch and delay if on the same band
-                        if (self.vfoa_band != self.vfoa_band_split_Tx):
+                        if (radio_model != IC9700 and self.split_status == 1 and self.__vfob_band_last != self.vfob_band) or \
+                            (radio_model == IC9700 and self.split_status != 1 and active_band and not main_TX):
+                            self.TX_Delay = True
                             self.p_status("SPLtx")
-                            io.band_io_output(self.vfoa_band)
+                            if radio_model == IC9700:    
+                                io.band_io_output(self.vfoa_band)
                             time.sleep(self.PTT_hang_time)
                             print("Delay:",self.PTT_hang_time,"sec", flush=True)
                         else:
-                            self.p_status(" DUP ")
-                        io.ptt_io_output(self.vfoa_band, self.ptt_state)
+                            self.p_status(" DUP ")  # Duplex mode
                     else:
-                        self.p_status(" PTT ")
-                        io.ptt_io_output(self.vfoa_band, self.ptt_state)
+                        if radio_model == IC9700 and main_TX:
+                            self.bandname = Freq_table[self.vfob_band]["bandname"]
+                            self.vfoa_band = self.vfob_band
+                            self.selected_vfo = self.unselected_vfo
+                        self.p_status(" PTT ")  # not split or duplex
+                    io.ptt_io_output(self.vfoa_band, self.ptt_state)
 
-                else:   #(self.ptt_state == 0):
-                    #print("PTT-RX VFO A Band =", self.bandname, "VFO B Band =", self.vfob_band, "VFOA BAND SPLIT TX =", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX =", self.selected_vfo, " ptt_state is RX ", self.ptt_state) #, " Msg ID ", hex(self.payload_copy[0x0001]))
-                    if (self.split_status != 0 and (active_band == 1 and radio_model == IC9700)): # swap selected and unselected when split is on during TX
-                        self.vfoa_band = self.vfoa_band_split_Tx
-                        self.selected_vfo = self.selected_vfo_split_Tx
-                        #print("PTT-RX1 VFO A Band = ", self.bandname, "VFO B Band = ", self.vfob_band,  " ptt_state is RX ", self.ptt_state)
-
+                else:   #(self.ptt_state == 0):                    
+                    #print("PTT-RX VFOA Band:", self.vfoa_band, self.selected_vfo, "VFO B Band:", self.vfob_band, self.unselected_vfo, "SPLIT:", self.split_status, "SUB:", active_band, "ptt_state is RX ")
+                    if (radio_model != IC9700 and self.split_status != 0) or (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): # swap selected and unselected when split is on during TX    
+                        if radio_model == IC9700:
+                            self.vfoa_band = self.vfoa_band_split_Tx
+                            self.selected_vfo = self.selected_vfo_split_Tx
+                            self.bandname = Freq_table[self.vfoa_band]['bandname']               
+                        #print("PTT-RX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, " VFO B Band:", self.vfob_band, self.unselected_vfo, " SPLIT:", self.split_status, " SUB:", active_band, " MainTX:", main_TX, " ptt_state is TX ")
                         # skip the band switch and delay if on the same band
-                        if (self.vfoa_band != self.vfob_band):
+                        if (radio_model != IC9700 and self.split_status == 1 or self.vfoa_band != self.vfoa_band) or \
+                            (radio_model == IC9700 and (active_band == 1 or self.split_status == 0) and not main_TX):
                             self.p_status("SplRx")
                             io.ptt_io_output(self.vfoa_band, self.ptt_state)
                             time.sleep(self.PTT_hang_time)
                             print("Delay:",self.PTT_hang_time,"sec", flush=True)
-                            io.band_io_output(self.vfoa_band)
+                            if radio_model == IC9700:
+                                io.band_io_output(self.vfoa_band)
+                            self.TX_Delay = False
                         else:
-                            #self.p_status(" DUP ")
+                            self.p_status(" DUP ")
                             io.ptt_io_output(self.vfoa_band, self.ptt_state)
-                            pass
                     else:
-                        #self.p_status(" PTT ")
-                        io.ptt_io_output(self.vfoa_band, self.ptt_state)
-
+                        if radio_model == IC9700 and main_TX:
+                            self.bandname = Freq_table[self.vfob_band]["bandname"]
+                        self.p_status(" PTT ")
+                        io.ptt_io_output(self.vfoa_band, self.ptt_state)                        
+                        if radio_model == IC9700 and main_TX:
+                            self.selected_vfo = self.CIV_selected_vfo_rx
+                            self.unselected_vfo = self.CIV_unselected_vfo
+                            self.bandname = Freq_table[self.__vfoa_band_last]["bandname"]
+                        self.p_status("FREQ ")
                 self.__ptt_state_last = self.ptt_state
 
 
@@ -1003,6 +1046,9 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
     global filt
     global datamode
     global active_band  # for 9700 main=0 sub=1 used to swap 
+    global CIV_selected_vfo
+    global CIV_unselected_vfo
+    global CIV_selected_vfo_rx
     
     #print("CIV_Action: Entry - cmd_num = %x data_len= %d  cmd = %X  data_start_idx = %d  data_len = %d  rd_buffer:%X %X %X %X %X %X %X %X %x %X %X" % (cmd_num, data_len, cmd_List[cmd_num][2],
     #         data_start_idx, data_len, rd_buffer[0], rd_buffer[1], rd_buffer[2], rd_buffer[3], rd_buffer[4], rd_buffer[5], rd_buffer[6],
@@ -1026,11 +1072,20 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                 #print("CIV_Action:  Freq:", f, flush = True);
                 #read_Frequency(f, data_len);
                 if rd_buffer[4] == 0x25 and rd_buffer[5] == 1:
-                    bd.unselected_vfo = f
-                    #print("VFOB", bd.unselected_vfo)
+                        bd.CIV_unselected_vfo = f
+                        #print("VFOB Main", bd.CIV_unselected_vfo)
+                elif rd_buffer[4] == 0x25 and rd_buffer[5] == 0:
+                        bd.CIV_selected_vfo = f
+                        #rint("VFOA Main", bd.CIV_selected_vfo)
                 else:
-                    bd.selected_vfo = f
-                bd.frequency(bd.selected_vfo, bd.unselected_vfo)   #  0 is vfoa, 1 is vfo b
+                    if active_band:
+                        bd.CIV_selected_vfo_rx = f
+                        #print("VFOA Sub", bd.CIV_selected_vfo_rx)
+                    else:
+                        bd.CIV_selected_vfo = f
+                        #print("VFOA Main", bd.CIV_selected_vfo)
+                        #bd.CIV_selected_vfo_rx = 0
+                bd.frequency(bd.CIV_selected_vfo, bd.CIV_unselected_vfo, bd.CIV_selected_vfo_rx)   #  0 is vfoa, 1 is vfo b   
         
         case cmds.CIV_C_TX.value:  # Used to request RX TX status from radio
             global PTT
@@ -1057,7 +1112,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
         case cmds.CIV_C_SPLIT_READ.value:
             bd.split_status = rd_buffer[data_start_idx]
             bd.write_split(bd.split_status)
-            #print("CIV_Action: CI-V Returned Split status:", bd.split_status)    
+            #print("CI-V Split status:", bd.split_status)    
 
         case cmds.CIV_C_PREAMP_READ.value:
             bd.preamp_status = rd_buffer[data_start_idx]
@@ -1080,7 +1135,6 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
             # get extended mode since this does not update data mode.  It does occur on band changes which has uses
             if radio_model == IC9700:
                 sendCatRequest(cmds.CIV_R_MAINSUBBAND.value, 0, 0)  # selected VFO freq
-                pass
             if not PTT:
                 sendCatRequest(cmds.CIV_C_F26A.value, 0, 0)   # mode, filter, datamode
             return
@@ -1286,12 +1340,10 @@ def sendCatRequest(cmd_num, Data, Data_len):  # first byte in Data is length
     msg_len += 1
     req[msg_len] = 0  # null terminate for printing or conversion to String type
 
-    #print("sendCatRequest --> Tx Raw Msg: %s," % (req))
-    #print("sendCatRequest:  msg_len = %d  END" % (msg_len))
+    #print("sendCatRequest --> Tx Raw Msg: %s  msg_len = %d  END" % (req[0:msg_len], msg_len))
 
     if (msg_len < buf_size - 1):  # ensure our data is not longer than our buffer
         send_str = req[0:msg_len]
-          
         #  This is the main debugging print
         #hex_array = [hex(num) for num in send_str][0:msg_len]
         #print("sendCatRequest: ***Send TX data = ", hex_array)
@@ -1449,15 +1501,17 @@ def ser_write(buffer):
     if init_done:
         try:         
             if ser.isOpen(): 
-                #hex_array = [hex(num) for num in buffer]
+                hex_array = [hex(num) for num in buffer]
                 #print("ser_write buffer: %s" % (hex_array))
                 ser.write(buffer)
                 time.sleep(0.1)  #give the serial port sometime to receive the data
                 read_port()
-        
+                
+        except IndexError as exc:
+            print("*** print_exception:")
+            traceback.print_exception(exc, limit=6, file=sys.stdout)
         except serial.SerialException as s:
             print("ser_write: SerialException: error communicating...:", s)
-        
         except Exception as e:
             #raise Serial.SerialException
             print("ser_write: error communicating...:",e)   
@@ -1467,13 +1521,15 @@ def ser_write(buffer):
            
 def poll_radio(bypass):
     global loop_ctr
+    
+    test = False   # block most polling for testing
 
     if not init_done:
         return
     loop_time = 60
-    if (loop_ctr >= loop_time) or bypass:
+    if (loop_ctr >= loop_time) or bypass and not test:
         #print("***L60")
-        #sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0))   # turn off scope data ouput to reduce bandwidth
+        #sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0)   # turn off scope data ouput to reduce bandwidth
         
         if not PTT:
             #print("Get UTC offset")
@@ -1484,8 +1540,8 @@ def poll_radio(bypass):
             if radio_model == IC9700:
                 sendCatRequest(cmds.CIV_C_UTC_READ_9700.value, 0, 0)
             sendCatRequest(cmds.CIV_C_MY_POSIT_READ.value, 0, 0)
-        
-    if loop_ctr % 5 == 0 or bypass:  # every 5 seconds
+     
+    if loop_ctr % 5 == 0 or bypass and not test:  # every 5 seconds
         #print("L", loop_ctr)
         if not PTT:
             if radio_model == IC9700:
@@ -1496,9 +1552,9 @@ def poll_radio(bypass):
     # These run every 1 second
     sendCatRequest(cmds.CIV_C_TX.value, 0, 0)
     if not PTT:
-        #sendCatRequest(cmds.CIV_C_F25A.value, 0, 0)  # selected VFO freq
+        sendCatRequest(cmds.CIV_C_F25A.value, 0, 0)  # selected VFO freq
         sendCatRequest(cmds.CIV_C_F25B.value, 0, 0)  # unselected vfo freq
-        #sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # selected VFO freq
+        sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # unselected vfo freq
         sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0)   # split mode
     
     loop_ctr += 1
@@ -1573,16 +1629,18 @@ def serial_sniffer(args):
                 ser_init()
                 print("Waiting for serial port to open")
             if ser.isOpen():
-                # Try each address until one responds
-                if not valid_address:
-                    radio_address = IC9700
-                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
-                if not valid_address:
-                    radio_address = IC905
-                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)                
-                if not valid_address:
-                    radio_address = IC705
-                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                
+                while not valid_address:
+                    # Try each address until one responds
+                    if not valid_address:
+                        radio_address = IC9700
+                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
+                    if not valid_address:
+                        radio_address = IC905
+                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)                
+                    if not valid_address:
+                        radio_address = IC705
+                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
                     
                 sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0)
@@ -1590,7 +1648,6 @@ def serial_sniffer(args):
                 sendCatRequest(cmds.CIV_C_F26A.value, 0, 0)
                 if radio_model == IC9700:
                     sendCatRequest(cmds.CIV_R_MAINSUBBAND.value, 0, 0)  # selected VFO freq
-                    pass
                 sendCatRequest(cmds.CIV_C_F_SEND.value, 0, 0)  # selected VFO freq
                 sendCatRequest(cmds.CIV_C_F25A.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_F25B.value, 0, 0)
@@ -1606,7 +1663,7 @@ def serial_sniffer(args):
                 while (1):
                     io.PTT_In()
                     read_port()
-                    if (active_band != active_band_last):
+                    if (radio_model == IC9700 and active_band != active_band_last):
                         sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # selected VFO freq
                         active_band_last = active_band
             else:
