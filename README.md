@@ -53,7 +53,7 @@ I initially looked at adding GPIO code to wfView and spotted a few places in tha
 Screen shot as of March 10, 2025.  Now has labels for Filter, Mode and Datamode
 ![{7D67B7BA-FFF0-4CA6-BC95-779014BE8707}](https://github.com/user-attachments/assets/e27a474d-1b84-4575-8a4e-aa2391595cb9)
 
-This now has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is being ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  
+This now has working frequency and band from serial CI-V along with the same GPIO working as the TCP version for the 905.  The CI-V parser is ported from the C code and fed into the existing Python version functions for frequency and PTT.  One difference is that with CI-V I can poll the radio to get info.  The TCP version is read-only.  
 
 I am porting over selected CI-V library functions and poll the radio at startup.  They include polled PTT, date, time, UTC offset, location, preamp, attenuator, frequency, and split.  I calculate grid square to 8 places.  GPIO for relays is working.   If you run this at the same time as TCP905.py, make sure to use separate GPIO pin assignments so they do not conflict.
 
@@ -65,7 +65,7 @@ To be added:
 
 ### Networking Options
 
-The TCP905 version decoder requires a tap into the dedicated controller to RF Unit ethernet data.  The RF unit is set up on a managed switch(es) in a VLAN and port mirroring is enabled on that VLAN so we can monitor the data.  The data exchanged is not CI-V and is unpublished.  Since there is direct access tothe ethenet, CPU usage is very low. ATV mode however exceeds a Pi3 100MB ethernet capacity.
+The TCP905 version decoder requires a tap into the dedicated controller to RF Unit ethernet data.  The RF Unit is set up on a managed switch(es) in a VLAN and port mirroring is enabled on that VLAN so we can monitor the data.  The data exchanged is not CI-V and is unpublished.  Since there is direct access tothe ethernet, CPU usage is very low. ATV mode however exceeds a Pi3 100MB ethernet capacity.
 
 This decoder uses standard CI-V commands using wfView as a ethernet to serial bridge. This lets you use the LAN/WiFi side ethernet connection uses standard CI-V protocols. It requires no VLAN or port mirror so standrd unmanged switches work.  Putting wfview on the same CPU as the Decodewr app and using virtual serial to connect them lets you place the CPU anywhere your ethernet network can reach.  Even WiFi might work.  Someday I hope to directly access the radio via the LAN with no bridging software required, but for now the serial is the easy way to do this. Also a direct connecxtion woudsl let a smaller CPU like a Pi 3 to work.
 
@@ -75,15 +75,15 @@ Bottom line, if you already have, or can run an ethernet cable out to where you 
 
 wfView is used as a LAN to serial bridge. Installing wfView on the Pi is fairly simple.  I used the fullbuild-wfview script.  You can find the wfView 2.x files, instructions, and install/build script for Pi here.  See the wfView section for installing wfView.
    
-Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This is very similar with just a few name changes.
+Use the Wiki pages on the IC905 TCP Ethnernet Decoder project.  This program is a variation and is very similar with just a few name changes along witthe config notes applied below.
 [https://github.com/K7MDL2/IC905_Ethernet_Decoder](https://github.com/K7MDL2/IC905_Ethernet_Decoder/wiki)
 
-The main app name here is CI-V_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
- This permits parallel operation with the TCP905 version which is how things are in my dev environment.  The 'view_log' tool is now 'view_decoder_log'.
+The main app name here is CIV_Serial.py and has the same install script, logs, config, and service files with names changed from Decoder905 to Decoder. 
+ This permits parallel operation with the TCP905 version which is how things are in my dev environment.  Be sure to use unique IO pins to avoid GPIO conflicts. The 'view_log' tool is now 'view_Decoder_log'.
 
 I support multiple radios.  I auto-detect the CI-V address and dynamically change the frequency table and IO pin table reloading the necessary variables to switch between the 905 (and 9700 which is the same) and the 705, hopefully other radios later.  
 
-I have a config file entry inside the file ~/Decoder.config that will be overrriden by the detected CI-V address.  In the future I am thinking of using these entries to override the address to account for non-standard CI-V addresses or multiple radio configs in a single file. They could have different IO pin assignments. For now it is used to specifiy the initial frequency table loaded before a CI-V address is detected.
+I have a config file entry inside the file ~/Decoder.config that will be overriden by the detected CI-V address.  In the future I am thinking of using these entries to override the address to account for non-standard CI-V addresses or multiple radio configs in a single file. They could have different IO pin assignments. For now it is used to specifiy the initial frequency table loaded before a CI-V address is detected.
 
     # --------------------------------
     # 
@@ -104,9 +104,9 @@ The parameter MAIN_TX is defaulted to 1.  The IC-9700 always transmits on the MA
 
     MAIN_TX = 1
     
-If the program is current running in the background as a systemd service then use the stop/start utilities to cause teh configf to be reloaded.
+If the program is current running in the background as a systemd service then use the stop/start utilities to cause the config to be reloaded.
 
-Here are the new PTT input pin and mode additions
+Here are the new PTT input pin and inversion mode additions
 
     # To use a wired GPIO input set this = 1, else set to 0 for Polled PTT status
     WIRED_PTT=1
@@ -118,7 +118,7 @@ Here are the new PTT input pin and mode additions
     GPIO_PTT_IN_PIN=16
     GPIO_PTT_IN_PIN_INVERT=True
 
-Be sure to edit the band and pin number for your external IO hardware.  In my test setup I have a 3 relay HAT module.  I am using 1 relay for PTT and the other 2 as indication to me that the band IO is working.  There is only 2 relays so I just set them up to change as I sequentially go through the bands.  Since there are only 2 relays for band, there can be 4 states - all on, #1 on, #2 on, all off. Since there are 6 bands, 2 of them will have to use the same pattern as 2 other bands.   More relays of course is better.  
+Be sure to edit the band and pin number for your external IO hardware.  In my test setup I have a 3 relay HAT module.  I am using 1 relay for PTT and the other 2 as indication to me that the band IO is working.  There is only 2 relays so I just set them up to change as I sequentially go through the bands.  Since there are only 2 relays for band, there can be 4 states - all on, #1 on, #2 on, all off. Since there are 6 bands, 2 of them will have to use the same pattern as 2 other bands.  More relays of course is better.  
 
 Realize that the IO procress looks through the list of pins and applies the pattern one pin at a time. If you only have 1 relay, say for PTT, then the PTT pattern will be b'000001' or 0x01.  The lowest pin in the map (ptt band 0 here) will be set first followed by the others. If all 6 ptt pins are set to the same pin IO number then the pin will be set at first then unset for the remaining 5 bit positions.  To make this work, assign the band 0 ptt io pin to your relay pin number, then assign the rest of the ptt pins 1-5 to some other unused pin.
 
@@ -147,9 +147,9 @@ After the install script is done there will be a desktop icon. You can also use 
 
 I have been using VS Code for Arduino, ESP-IDF, and Python for years now.  It has integrated GitHub source control support and runs on multiple platforms and is far more productive than the Arduino IDE.  The ESP-IDF runs as an extension in VS Code.  Running the UI on a Pi4 was a bit tedious so I edited mostly on the PC.  
 
-With the much faster Pi5 here and this project, I have started using Code-Server running on the Pi5.  It allows you to run the VS Code UI use a browser on the local or any remote machine with all the same features including an integrated terminal and for Python a debugger.  I highly recommend it. For Python in particular setup is very simple.  See these links below.  I have used both the manual and the script installs, both are easy and work.  The current version is 4.98.0.
+With the much faster Pi5 here and this project, I have started using Code-Server running on the Pi5.  It allows you to run the VS Code UI using a browser on the local or any remote machine with all the same features including an integrated terminal and for Python a debugger.  I highly recommend it. For Python in particular setup is very simple.  See these links below.  I have used both the manual and the scripted installs, both are easy and work.  The version I used is 4.98.0.
 
     https://github.com/coder/code-server
     https://coder.com/docs/code-server/install
 
-Another useful too is FilelZilla which provides a file explorer type view between the local and one or more remote machines.
+Another useful tool is FilelZilla which provides a file explorer type view between the local and one or more remote machines.
