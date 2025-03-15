@@ -114,12 +114,15 @@ Realize that the IO procress looks through the list pins and applies the pattern
 
 I am using wfView 2.04 March 10 weekly build (or later).  I used the full build script. The wfView home page is here:
 
-    https://www.wfview.org
+https://www.wfview.org
 
 There are standard releases on the download page.  Scroll down the page you will see info for weekly builds and install instructions.  I am using weekly builds found here:
 
-    https://wfview.org/download/
-    https://www.wfview.org/public_builds/
+https://wfview.org/download/
+
+https://www.wfview.org/public_builds/
+
+https://wfview.org/wfview-user-manual/headless-server/  for headless server build
 
 I normally choose the latest version.  If it has problems it is easy enough to use an earlier verison.  I have last years 1.65 loaded also for testing on occasion.  It has minimal support for the IC-905 so I use 2.X builds.  Further down on the Download page are install instructions.  For the Pi I use the fullbuild-wfview.sh script.  You download the script, make it executable (chmod + x filename), then run it.
 
