@@ -92,7 +92,17 @@ I have a config file entry inside the file ~/Decoder.config that will be overrri
 
     RADIO_MODEL=IC9700
 
-  If the program is current runing in teh background as a systemd service then use the stop/start utilities to cause teh configf to be reloaded.
+The parameter MAIN_TX is defaulted to 1.  The IC-9700 always transmits on the MAIN band.  When Sub RX is enabled, the Sub RX frequency will be displayed by the program for VFOA.  When MAIN_TX=1 the BAND and PTT output pins will be set to the MAIN band and will ignore the SubRX band.  When MAIN_TX=0, then the BAND and PTT outputs will switch to the Sub RX band in RX, and then to the MAIN band during TX.  This is cross-band split like the 905 and 705.  I have a programmable delay between the BAND and PTT outputs set to 0.2Sec.
+
+    # -------------------------------- 
+    # IC-9700 Only
+    # 1 = Use main band only for Band Relays
+    # 0 = Switch Band relays to Sub Band in RX, then to MAIN band in TX (crossband split)
+    # --------------------------------
+
+    MAIN_TX = 1
+    
+If the program is current running in the background as a systemd service then use the stop/start utilities to cause teh configf to be reloaded.
 
 Here are the new PTT input pin and mode additions
 
@@ -122,7 +132,7 @@ https://wfview.org/download/
 
 https://www.wfview.org/public_builds/
 
-https://wfview.org/wfview-user-manual/headless-server/  for headless server build
+https://wfview.org/wfview-user-manual/headless-server/  for headless server build - appears to be serial only radio interface so not useful for this project
 
 I normally choose the latest version.  If it has problems it is easy enough to use an earlier verison.  I have last years 1.65 loaded also for testing on occasion.  It has minimal support for the IC-905 so I use 2.X builds.  Further down on the Download page are install instructions.  For the Pi I use the fullbuild-wfview.sh script.  You download the script, make it executable (chmod + x filename), then run it.
 
