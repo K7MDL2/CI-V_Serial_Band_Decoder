@@ -461,7 +461,6 @@ class BandDecoder(OutputHandler):
         print("Use Main Band only for TX on IC-9700 =", main_TX)
         
 
-
     # reload paramters after detection of different radio address.  Skip DHT, radio model
     def init_band(self, key_value_pairs, reload):
         if not reload:
@@ -475,31 +474,6 @@ class BandDecoder(OutputHandler):
             io.gpio_config()
             self.vfoa_band = self.frequency(self.selected_vfo, self.unselected_vfo, self.selected_vfo_rx)  # 0 is vfoa
             self.ptt(PTT)
-        
-
-    def write_split(self, split):
-        file_path = os.path.expanduser('~/.Decoder.split')
-        try:
-            with open(file_path,'w+') as file:
-                split_str = "RADIO_SPLIT="+str(split)
-                file.write(split_str)
-        except FileNotFoundError:
-            print(f"The file {file} does not exist in the home directory.")
-        except Exception as e:
-            print(f"An error occured: {e}")
-
-
-    def write_band(self, band):
-        file_path = os.path.expanduser('~/.Decoder.band')
-        try:
-            with open(file_path,'w+') as file:
-                band_str = "RADIO_BAND="+band
-                file.write(band_str)
-                #print("Band File String", band_str)
-        except FileNotFoundError:
-            print(f"The file {file} does not exist in the home directory.")
-        except Exception as e:
-            print(f"An error occured: {e}")
 
 
     def hexdump(self, data: bytes):
@@ -596,10 +570,9 @@ class BandDecoder(OutputHandler):
         self.write_temps(temp_str+"\n")
 
 
-        #
-        #    formatVFO()
-        #
-
+    #
+    #    formatVFO()
+    #
     def formatVFO(self, vfo):
         vfo_str = [] * 20
         #if (ModeOffset < -1 || ModeOffset > 1)
@@ -916,7 +889,6 @@ def read_config(config_file):
 
     except FileNotFoundError:
             print(f"The file {config_file} does not exist in the home directory.")
-            bd.write_band(bd.vfoa_band)
     except Exception as e:
             print(f"An error occurred: {e}")
 
@@ -1111,7 +1083,6 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
 
         case cmds.CIV_C_SPLIT_READ.value:
             bd.split_status = rd_buffer[data_start_idx]
-            bd.write_split(bd.split_status)
             #print("CI-V Split status:", bd.split_status)    
 
         case cmds.CIV_C_PREAMP_READ.value:
@@ -1203,7 +1174,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
         case cmds.CIV_C_MY_POSIT_READ.value:
             #print("Process time, date, location data_len = ", data_len, rd_buffer)
             if (rd_buffer[data_start_idx] == 0xFF):
-                print("***Error: Position/Time Not available, GPS connected? - Data = %X" % (rd_buffer[data_start_idx]), flush=True)
+                print("Position/Time Not available, GPS connected? - Data = %X" % (rd_buffer[data_start_idx]), flush=True)
                 return
             # if (data_len == 23) then altitude is invalid and not sent out, skip
             skip_altitude = False
@@ -1409,16 +1380,7 @@ def processCatMessages():
         cmd_num = 255
         match = 0
         if (msg_len > 0):
-            #print("processCatMessages <++ Rx Raw Msg: ")
-            #for k in range(msg_len):
-            #    print(read_buffer[k])
-            #print("msg_len = %d END\n", msg_len)
-
             if (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE) and read_buffer[3] != CONTROLLER_ADDRESS):
-                #radio_address_received = read_buffer[3]
-                #print("radio_address_received = ", radio_address_received)
-                #if (radio_address_received != radio_address):
-                #if (radio_address_received != 0 and radio_address == 0):
                 #hex_array = [hex(num) for num in read_buffer][0:msg_len]
                 #print("processCatMessages %s  length: %d" % (hex_array, data_len))
                 if (1):
@@ -1626,22 +1588,13 @@ def serial_sniffer(args):
         try:
             while not init_done:
                 time.sleep(5)
-                ser_init()
+                serial_init()
                 print("Waiting for serial port to open")
             if ser.isOpen():
                 
                 while not valid_address:
+                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
                     # Try each address until one responds
-                    if not valid_address:
-                        radio_address = IC9700
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
-                    if not valid_address:
-                        radio_address = IC905
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)                
-                    if not valid_address:
-                        radio_address = IC705
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
-                    
                 sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0)
@@ -1653,7 +1606,6 @@ def serial_sniffer(args):
                 sendCatRequest(cmds.CIV_C_F25B.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # selected VFO freq
                 #sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0)   # turn off scope data ouput to reduce bandwidth
-                #sendCatRequest(cmds.CIV_C_F25A.value, 0, 0)
 
                 poll_radio(True) # initalize
                 poll = RepeatedTimer(1, poll_radio, False)  # call every 1 sec
@@ -1671,8 +1623,6 @@ def serial_sniffer(args):
                 init_done = False
                         
         except KeyboardInterrupt:
-            bd.write_split(bd.split_status)
-            bd.wcrite_band(bd.vfoa_band)
             print('Done')
             dht.stop()
             poll.stop()
@@ -1694,17 +1644,6 @@ if __name__ == '__main__':
     tim = dtime.now()
     print("Startup at", tim.strftime("%m/%d/%Y %H:%M:%S%Z"), flush=True)
 
-    split_file = os.path.expanduser("~/.Decoder.split")  # saved state for last known split status
-    if not os.path.exists(split_file):
-        bd.write_split(0)
-    radio_split = read_config(split_file)
-    bd.read_split(radio_split)
-
-    band_file = os.path.expanduser("~/.Decoder.band")    # last known band value
-    if not os.path.exists(band_file):
-        bd.write_band("0")
-    radio_band = read_config(band_file)
-    
     # read in config, split and band files
     config_file = os.path.expanduser("~/Decoder.config")
     if os.path.exists(config_file):
