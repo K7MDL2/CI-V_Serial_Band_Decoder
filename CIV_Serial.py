@@ -893,25 +893,6 @@ def read_config(config_file):
             print(f"An error occurred: {e}")
 
 
-def setTime(hr, min, sec, mday, month, yr):  # modifed to match arduino TimeLib versionq}:
-#void setTime(int yr, int month, int mday, int hr, int minute, int sec, int isDst)  // orignal example
-    setenv("TZ", "UTC", 1)
-    tzset()
-
-    tm.tm_year = yr - 1900   # Set date
-    tm.tm_mon = month-1
-    tm.tm_mday = mday
-    tm.tm_hour = hr      # Set time
-    tm.tm_min = min
-    tm.tm_sec = sec
-    #tm.tm_isdst = isDst  # 1 or 0
-    tm.tm_isdst = 0  # 1 or 0  // setting to 0 for UTC only use
-    #t = mktime(&tm)
-    t = mktime(tm)
-    #ESP_LOGI(TAG, "Setting time: %s", asctime(&tm));
-    #char *myDate0 = ctime(&t);
-    #ESP_LOGI(TAG, "0-myDate: %s", myDate0);
-
     #
     # The algorithm is fairly straightforward. The scaling array provides divisors to divide up the space into the required number of sections,
     # which is 18 for for the field, 10 for the square, 24 for the subsquare, 10 for the extended square, then 24, then 10. 
@@ -1042,7 +1023,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                     f += (rd_buffer[i] >> 4) * mul
                     mul *= 10  #  * decMulti[i * 2];
                 #print("CIV_Action:  Freq:", f, flush = True);
-                #read_Frequency(f, data_len);
+
                 if rd_buffer[4] == 0x25 and rd_buffer[5] == 1:
                         bd.CIV_unselected_vfo = f
                         #print("VFOB Main", bd.CIV_unselected_vfo)
