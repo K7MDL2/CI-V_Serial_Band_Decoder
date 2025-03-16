@@ -7,7 +7,6 @@
 #    permititng remote install of the Pi and its relays.
 #
 #   March 2025 K7MDL
-
 #
 #------------------------------------------------------------------
 
@@ -1203,7 +1202,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
         case cmds.CIV_C_MY_POSIT_READ.value:
             #print("Process time, date, location data_len = ", data_len, rd_buffer)
             if (rd_buffer[data_start_idx] == 0xFF):
-                print("***Error: Position/Time Not available, GPS connected? - Data = %X" % (rd_buffer[data_start_idx]), flush=True)
+                print("Position/Time Not available, GPS connected? - Data = %X" % (rd_buffer[data_start_idx]), flush=True)
                 return
             # if (data_len == 23) then altitude is invalid and not sent out, skip
             skip_altitude = False
@@ -1409,16 +1408,7 @@ def processCatMessages():
         cmd_num = 255
         match = 0
         if (msg_len > 0):
-            #print("processCatMessages <++ Rx Raw Msg: ")
-            #for k in range(msg_len):
-            #    print(read_buffer[k])
-            #print("msg_len = %d END\n", msg_len)
-
             if (read_buffer[0] == (START_BYTE) and read_buffer[1] == (START_BYTE) and read_buffer[3] != CONTROLLER_ADDRESS):
-                #radio_address_received = read_buffer[3]
-                #print("radio_address_received = ", radio_address_received)
-                #if (radio_address_received != radio_address):
-                #if (radio_address_received != 0 and radio_address == 0):
                 #hex_array = [hex(num) for num in read_buffer][0:msg_len]
                 #print("processCatMessages %s  length: %d" % (hex_array, data_len))
                 if (1):
