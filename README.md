@@ -154,4 +154,6 @@ With the much faster Pi5 here and this project, I have started using Code-Server
     https://github.com/coder/code-server
     https://coder.com/docs/code-server/install
 
+Another similar way to run VS Code for dev on the Pi is run VS Code on your main computer and use the blue "Open a Remote Window" icon in the lower left corner.  Choose ssh conection to your Pi.  Enter the IP and credentials and it sets up code server remotely.
+
 Another useful tool is FilelZilla which provides a file explorer type view between the local and one or more remote machines.
