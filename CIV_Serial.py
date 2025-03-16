@@ -460,7 +460,6 @@ class BandDecoder(OutputHandler):
         print("Use Main Band only for TX on IC-9700 =", main_TX)
         
 
-
     # reload paramters after detection of different radio address.  Skip DHT, radio model
     def init_band(self, key_value_pairs, reload):
         if not reload:
@@ -474,31 +473,6 @@ class BandDecoder(OutputHandler):
             io.gpio_config()
             self.vfoa_band = self.frequency(self.selected_vfo, self.unselected_vfo, self.selected_vfo_rx)  # 0 is vfoa
             self.ptt(PTT)
-        
-
-    def write_split(self, split):
-        file_path = os.path.expanduser('~/.Decoder.split')
-        try:
-            with open(file_path,'w+') as file:
-                split_str = "RADIO_SPLIT="+str(split)
-                file.write(split_str)
-        except FileNotFoundError:
-            print(f"The file {file} does not exist in the home directory.")
-        except Exception as e:
-            print(f"An error occured: {e}")
-
-
-    def write_band(self, band):
-        file_path = os.path.expanduser('~/.Decoder.band')
-        try:
-            with open(file_path,'w+') as file:
-                band_str = "RADIO_BAND="+band
-                file.write(band_str)
-                #print("Band File String", band_str)
-        except FileNotFoundError:
-            print(f"The file {file} does not exist in the home directory.")
-        except Exception as e:
-            print(f"An error occured: {e}")
 
 
     def hexdump(self, data: bytes):
@@ -595,10 +569,9 @@ class BandDecoder(OutputHandler):
         self.write_temps(temp_str+"\n")
 
 
-        #
-        #    formatVFO()
-        #
-
+    #
+    #    formatVFO()
+    #
     def formatVFO(self, vfo):
         vfo_str = [] * 20
         #if (ModeOffset < -1 || ModeOffset > 1)
@@ -735,7 +708,6 @@ class BandDecoder(OutputHandler):
                 else:
                     io.band_io_output(self.vfoa_band)
                 self.__vfoa_band_last = self.vfoa_band
-                #self.write_band(self.vfoa_band)  # update the status file on change
                 #self.bandname = Freq_table[self.vfoa_band]['bandname']
             self.__freq_lastA = __vfoa
             self.__freq_lastB = __vfob
@@ -758,7 +730,7 @@ class BandDecoder(OutputHandler):
                     #print("PTT-TX VFOA Band:", self.vfoa_band, self.selected_vfo, "VFO B Band:", self.vfob_band, self.unselected_vfo, "SPLIT:", self.split_status, "SUB:", active_band, "ptt_state is TX ")
                     #  Split and Duplex for IC9700 is complicated by the sub RX and whether to switch IO band or not on TX
                     if (radio_model != IC9700 and self.split_status != 0) or \
-                        (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): #and not main_TX): # swap selected and unselected when split is on during TX
+                        (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): # swap selected and unselected when split is on during TX
                         if radio_model == IC9700:
                             self.vfoa_band_split_Tx = self.vfoa_band  # back up the original VFOa band
                             self.selected_vfo_split_Tx = self.selected_vfo  # back up original VFOa  
@@ -766,7 +738,8 @@ class BandDecoder(OutputHandler):
                             self.selected_vfo = self.unselected_vfo
                             self.vfoa_band = self.vfob_band
                             self.bandname = Freq_table[self.vfoa_band]['bandname']                         
-                        #print("PTT-TX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, "VFOB Band:", self.vfob_band, "VFOA BAND SPLIT TX:", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX:", self.selected_vfo_split_Tx)
+                        
+                        #print("PTT-TX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, "VFOB Band:", self.vfob_band, "VFOA BAND SPLIT TX:", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX:", self.selected_vfo_split_Tx, " Main_TX:", main_TX, "Actve Band:", active_band)
                         # skip the band switch and delay if on the same band
                         if (radio_model != IC9700 and self.split_status == 1 and self.__vfob_band_last != self.vfob_band) or \
                             (radio_model == IC9700 and self.split_status != 1 and active_band and not main_TX):
@@ -915,29 +888,9 @@ def read_config(config_file):
 
     except FileNotFoundError:
             print(f"The file {config_file} does not exist in the home directory.")
-            bd.write_band(bd.vfoa_band)
     except Exception as e:
             print(f"An error occurred: {e}")
 
-
-def setTime(hr, min, sec, mday, month, yr):  # modifed to match arduino TimeLib versionq}:
-#void setTime(int yr, int month, int mday, int hr, int minute, int sec, int isDst)  // orignal example
-    setenv("TZ", "UTC", 1)
-    tzset()
-
-    tm.tm_year = yr - 1900   # Set date
-    tm.tm_mon = month-1
-    tm.tm_mday = mday
-    tm.tm_hour = hr      # Set time
-    tm.tm_min = min
-    tm.tm_sec = sec
-    #tm.tm_isdst = isDst  # 1 or 0
-    tm.tm_isdst = 0  # 1 or 0  // setting to 0 for UTC only use
-    #t = mktime(&tm)
-    t = mktime(tm)
-    #ESP_LOGI(TAG, "Setting time: %s", asctime(&tm));
-    #char *myDate0 = ctime(&t);
-    #ESP_LOGI(TAG, "0-myDate: %s", myDate0);
 
     #
     # The algorithm is fairly straightforward. The scaling array provides divisors to divide up the space into the required number of sections,
@@ -1069,7 +1022,7 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
                     f += (rd_buffer[i] >> 4) * mul
                     mul *= 10  #  * decMulti[i * 2];
                 #print("CIV_Action:  Freq:", f, flush = True);
-                #read_Frequency(f, data_len);
+
                 if rd_buffer[4] == 0x25 and rd_buffer[5] == 1:
                         bd.CIV_unselected_vfo = f
                         #print("VFOB Main", bd.CIV_unselected_vfo)
@@ -1110,7 +1063,6 @@ def CIV_Action(cmd_num:int, data_start_idx:int, data_len:int, msg_len:int, rd_bu
 
         case cmds.CIV_C_SPLIT_READ.value:
             bd.split_status = rd_buffer[data_start_idx]
-            bd.write_split(bd.split_status)
             #print("CI-V Split status:", bd.split_status)    
 
         case cmds.CIV_C_PREAMP_READ.value:
@@ -1616,22 +1568,13 @@ def serial_sniffer(args):
         try:
             while not init_done:
                 time.sleep(5)
-                ser_init()
+                serial_init()
                 print("Waiting for serial port to open")
             if ser.isOpen():
                 
                 while not valid_address:
+                    sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
                     # Try each address until one responds
-                    if not valid_address:
-                        radio_address = IC9700
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
-                    if not valid_address:
-                        radio_address = IC905
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)                
-                    if not valid_address:
-                        radio_address = IC705
-                        sendCatRequest(cmds.CIV_C_TRX_ID.value, 0, 0)
-                    
                 sendCatRequest(cmds.CIV_C_PREAMP_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_ATTN_READ.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_SPLIT_READ.value, 0, 0)
@@ -1643,7 +1586,6 @@ def serial_sniffer(args):
                 sendCatRequest(cmds.CIV_C_F25B.value, 0, 0)
                 sendCatRequest(cmds.CIV_C_F_READ.value, 0, 0)  # selected VFO freq
                 #sendCatRequest(cmds.CIV_C_SCOPE_OFF.value, 0, 0)   # turn off scope data ouput to reduce bandwidth
-                #sendCatRequest(cmds.CIV_C_F25A.value, 0, 0)
 
                 poll_radio(True) # initalize
                 poll = RepeatedTimer(1, poll_radio, False)  # call every 1 sec
@@ -1661,8 +1603,6 @@ def serial_sniffer(args):
                 init_done = False
                         
         except KeyboardInterrupt:
-            bd.write_split(bd.split_status)
-            bd.wcrite_band(bd.vfoa_band)
             print('Done')
             dht.stop()
             poll.stop()
@@ -1684,17 +1624,6 @@ if __name__ == '__main__':
     tim = dtime.now()
     print("Startup at", tim.strftime("%m/%d/%Y %H:%M:%S%Z"), flush=True)
 
-    split_file = os.path.expanduser("~/.Decoder.split")  # saved state for last known split status
-    if not os.path.exists(split_file):
-        bd.write_split(0)
-    radio_split = read_config(split_file)
-    bd.read_split(radio_split)
-
-    band_file = os.path.expanduser("~/.Decoder.band")    # last known band value
-    if not os.path.exists(band_file):
-        bd.write_band("0")
-    radio_band = read_config(band_file)
-    
     # read in config, split and band files
     config_file = os.path.expanduser("~/Decoder.config")
     if os.path.exists(config_file):
