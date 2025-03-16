@@ -26,7 +26,7 @@
 [wfView]: https://img.shields.io/badge/-wfView%202.04-purple "wfView"
 
 ### Update Mar 15, 2025 
-1. Completed support for the IC-9700.  It now handles the Sub RX in 2 ways.  The Sub RX band frequency can be displayed but ignored for BAND and PTT output purposes, always using the MAIN band for relay control.  Or it can operate as normal cross-band split, switching the BAND and PTT outputs between the 2 bands.  See the setup info below for MAIN_TX (IC-9700 only).
+1. Completed support for the IC-9700.  It now handles the Sub RX in 2 ways.  The Sub RX band frequency can be displayed but ignored for BAND and PTT output purposes, always using the MAIN band for relay control.  Or it can operate as normal cross-band split, switching the BAND and PTT outputs between the 2 bands.  See the setup info below for MAIN_TX (IC-9700 only).  Using March 15 build of wfView, has a fix for ID command though I have worked around it for now.
 
 ### Update Mar 13, 2025
 1. I changed the name of the main file from CI-V_Serial.py to CIV_Serial.py. The install script and service files are updated to match.  You will want to delete /usr/local/bin/CI-V_Serial.py.  This is to make some things cleaner, code does not like hyphens in variables.
