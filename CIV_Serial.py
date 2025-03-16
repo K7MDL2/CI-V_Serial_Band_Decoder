@@ -709,7 +709,6 @@ class BandDecoder(OutputHandler):
                 else:
                     io.band_io_output(self.vfoa_band)
                 self.__vfoa_band_last = self.vfoa_band
-                #self.write_band(self.vfoa_band)  # update the status file on change
                 #self.bandname = Freq_table[self.vfoa_band]['bandname']
             self.__freq_lastA = __vfoa
             self.__freq_lastB = __vfob
@@ -732,7 +731,7 @@ class BandDecoder(OutputHandler):
                     #print("PTT-TX VFOA Band:", self.vfoa_band, self.selected_vfo, "VFO B Band:", self.vfob_band, self.unselected_vfo, "SPLIT:", self.split_status, "SUB:", active_band, "ptt_state is TX ")
                     #  Split and Duplex for IC9700 is complicated by the sub RX and whether to switch IO band or not on TX
                     if (radio_model != IC9700 and self.split_status != 0) or \
-                        (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): #and not main_TX): # swap selected and unselected when split is on during TX
+                        (radio_model == IC9700 and (active_band or self.split_status != 0) and not main_TX): # swap selected and unselected when split is on during TX
                         if radio_model == IC9700:
                             self.vfoa_band_split_Tx = self.vfoa_band  # back up the original VFOa band
                             self.selected_vfo_split_Tx = self.selected_vfo  # back up original VFOa  
@@ -740,7 +739,8 @@ class BandDecoder(OutputHandler):
                             self.selected_vfo = self.unselected_vfo
                             self.vfoa_band = self.vfob_band
                             self.bandname = Freq_table[self.vfoa_band]['bandname']                         
-                        #print("PTT-TX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, "VFOB Band:", self.vfob_band, "VFOA BAND SPLIT TX:", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX:", self.selected_vfo_split_Tx)
+                        
+                        #print("PTT-TX SPLIT VFOA Band:", self.vfoa_band, self.selected_vfo, "VFOB Band:", self.vfob_band, "VFOA BAND SPLIT TX:", self.vfoa_band_split_Tx, "SELECTED VFO SPLIT TX:", self.selected_vfo_split_Tx, " Main_TX:", main_TX, "Actve Band:", active_band)
                         # skip the band switch and delay if on the same band
                         if (radio_model != IC9700 and self.split_status == 1 and self.__vfob_band_last != self.vfob_band) or \
                             (radio_model == IC9700 and self.split_status != 1 and active_band and not main_TX):
