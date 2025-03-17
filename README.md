@@ -124,7 +124,7 @@ Realize that the IO procress looks through the list of pins and applies the patt
 
 ### wfView setup
 
-I am using wfView 2.04 March 10 weekly build (or later).  I used the full build script. The wfView home page is here:
+I am using wfView 2.04 March 15 weekly build (or later).  I used the full build script. The wfView home page is here:
 
 https://www.wfview.org
 
